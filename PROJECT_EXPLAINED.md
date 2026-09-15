@@ -1,4 +1,4 @@
-# Cline — Project Explained for a Newbie Techie
+# Cline - MaStar Edition — Project Explained for a Newbie Techie
 
 > One-page brain map: what Cline is, how folders fit, how a prompt becomes file edits.
 
