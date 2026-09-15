@@ -340,6 +340,13 @@ export interface ProviderConfig
 
 	/** OpenCode-specific options */
 	opencode?: OpenCodeConfig;
+
+	/** Local GGUF-specific configuration */
+	modelPath?: string;
+	/** Number of CPU threads to use for inference */
+	threads?: number;
+	/** Number of GPU layers to offload (0 = CPU only) */
+	gpuLayers?: number;
 }
 
 /**

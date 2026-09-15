@@ -51,12 +51,12 @@
 
 ## Phase 1 — Provider ID & Type System (16–30)
 
-- [ ] 16. Add `LOCAL_GGUF = "local-gguf"` to `BUILT_IN_PROVIDER` in `ids.ts`
-- [ ] 17. Confirm `BUILT_IN_PROVIDER_IDS` auto-includes the new enum value
-- [ ] 18. Add `"local-gguf"` to the `ProviderFamily` union in `builtin-types.ts`
-- [ ] 19. Add optional `modelPath?: string` to `ProviderConfig` in `config.ts`
-- [ ] 20. Add optional `threads?: number` to `ProviderConfig`
-- [ ] 21. Add optional `gpuLayers?: number` to `ProviderConfig`
+- [x] 16. Add `LOCAL_GGUF = "local-gguf"` to `BUILT_IN_PROVIDER` in `ids.ts` — **COMPLETED**
+- [x] 17. Confirm `BUILT_IN_PROVIDER_IDS` auto-includes the new enum value — **COMPLETED** (verified via `Object.values(BUILT_IN_PROVIDER)`)
+- [x] 18. Add `"local-gguf"` to the `ProviderFamily` union in `builtin-types.ts` — **COMPLETED**
+- [x] 19. Add optional `modelPath?: string` to `ProviderConfig` in `config.ts` — **COMPLETED**
+- [x] 20. Add optional `threads?: number` to `ProviderConfig` — **COMPLETED**
+- [x] 21. Add optional `gpuLayers?: number` to `ProviderConfig` — **COMPLETED**
 - [ ] 22. Extend `ProviderConfigField["type"]` with `"file"` and `"number"`
 - [ ] 23. Add optional `fileFilter?: string` to `ProviderConfigField`
 - [ ] 24. Add optional `min`/`max` to `ProviderConfigField` for numeric fields

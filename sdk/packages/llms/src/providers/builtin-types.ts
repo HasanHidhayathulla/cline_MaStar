@@ -26,6 +26,7 @@ export type ProviderFamily =
 	| "opencode"
 	| "dify"
 	| "ollama"
+	| "local-gguf"
 	| "sap-ai-core";
 
 export type ProviderApiLine = "china" | "international";

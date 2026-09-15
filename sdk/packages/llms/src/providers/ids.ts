@@ -28,6 +28,7 @@ export enum BUILT_IN_PROVIDER {
 	// Local/self-hosted
 	OLLAMA = "ollama",
 	LMSTUDIO = "lmstudio",
+	LOCAL_GGUF = "local-gguf",
 	// OpenAI-compatible
 	DEEPSEEK = "deepseek",
 	XAI = "xai",
