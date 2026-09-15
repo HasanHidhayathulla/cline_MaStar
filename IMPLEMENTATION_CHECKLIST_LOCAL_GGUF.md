@@ -17,21 +17,35 @@
 
 ## Phase 0 — Research & Discovery (1–15)
 
-- [ ] 1. Audit Node.js GGUF parser libraries (`gguf`, `gguf-js`, `@huggingface/gguf`)
-- [ ] 2. Verify `node-llama-cpp` prebuilt binaries exist for Windows x64 / macOS arm64 / Linux x64
-- [ ] 3. Record llama.cpp `llama-server` CLI flags (`-m`, `-c`, `-ngl`, `-t`, `--jinja`, `--host`, `--port`)
-- [ ] 4. Confirm `llama-server` exposes OpenAI-compatible `/v1/chat/completions` (BLOCKER)
-- [ ] 5. Confirm `llama-server` exposes `/v1/models` for model listing
-- [ ] 6. Check license terms of llama.cpp binaries before any bundling decision (BLOCKER)
-- [ ] 7. Audit Cline's existing `openai-compatible` provider flow end-to-end
-- [ ] 8. Map how `providerSettingsRegistry.ts` picks which UI component renders
-- [ ] 9. Trace gRPC flow: webview → extension host → SDK → response
-- [ ] 10. Read `sdk/packages/llms/src/providers/factory-registry.ts` fully
-- [ ] 11. Read `sdk/packages/llms/src/providers/handler.ts` fully
-- [ ] 12. Read `sdk/packages/llms/src/catalog/types.ts` for the `ModelInfo` shape
-- [ ] 13. Read `apps/vscode/src/core/controller/models/providerCatalogShared.ts` fully
-- [ ] 14. Read `sdk/packages/core/src/services/llms/provider-settings.ts` fully
-- [ ] 15. Read `apps/vscode/proto/cline/models.proto` + `models.proto` RPC patterns (SPIKE)
+- [x] 1. Audit Node.js GGUF parser libraries (`gguf`, `gguf-js`, `@huggingface/gguf`) — DISCOVERED: `gguf-js` preferred (pure JS, well-maintained, good type definitions). Also `node-llama-cpp` has built-in GGUF parsing via llama.cpp bindings.
+
+- [x] 2. Verify `node-llama-cpp` prebuilt binaries exist for Windows x64 / macOS arm64 / Linux x64 — CONFIRMED: Prebuilt binaries available via npm for all major platforms. See: https://www.npmjs.com/package/node-llama-cpp
+
+- [x] 3. Record llama.cpp `llama-server` CLI flags (`-m`, `-c`, `-ngl`, `-t`, `--jinja`, `--host`, `--port`) — DOCUMENTED: `-m <model>`, `-c <ctx-size>`, `-ngl <gpu-layers>`, `-t <threads>`, `--jinja` (use GGUF chat template), `--host <addr>`, `--port <num>`
+
+- [x] 4. Confirm `llama-server` exposes OpenAI-compatible `/v1/chat/completions` — CONFIRMED: llama-server provides full OpenAI-compatible API at `http://localhost:PORT/v1/`
+
+- [x] 5. Confirm `llama-server` exposes `/v1/models` for model listing — CONFIRMED: `/v1/models` returns available models
+
+- [x] 6. Check license terms of llama.cpp binaries before any bundling decision — DOCUMENTED: llama.cpp is MIT licensed. Bundling binaries requires careful consideration of platform-specific builds. Recommended: detect user-installed llama-server first, optionally bundle later.
+
+- [x] 7. Audit Cline's existing `openai-compatible` provider flow end-to-end — REVIEWED: Provider selection → config persistence → gRPC → handler registration → `AgentModel` stream. Pattern: `getOllamaModels.ts` as reference for RPC-based provider operations.
+
+- [x] 8. Map how `providerSettingsRegistry.ts` picks which UI component renders — MAPPED: `CUSTOM_PROVIDER_SETTINGS_IDS` Set controls UI selection. Add `"local-gguf"` to this set to render custom UI.
+
+- [x] 9. Trace gRPC flow: webview → extension host → SDK → response — TRACED: Webview → `ModelsServiceClient` (gRPC) → `ModelsService` handler → SDK `/cline/llms` → response. Pattern: `getOllamaModels.ts` and `getLmStudioModels.ts` as templates.
+
+- [x] 10. Read `sdk/packages/llms/src/providers/factory-registry.ts` fully — REVIEWED: `registerHandler()` for synchronous handlers, `registerAsyncHandler()` for async. Custom handlers registered here provide `ApiHandler` that gets wrapped into `AgentModel` via `apihandler-agent-model-adapter.ts`.
+
+- [x] 11. Read `sdk/packages/llms/src/providers/handler.ts` fully — REVIEWED: `ApiHandler` interface: `getMessages()`, `createMessage()`, `getModel()`, `abort()`, `setAbortSignal()`. This is the contract our GGUF handler must implement.
+
+- [x] 12. Read `sdk/packages/llms/src/catalog/types.ts` for the `ModelInfo` shape — DOCUMENTED: ModelInfo includes `id`, `name`, `description`, `contextWindow`, `maxTokens`, `inputPrice`, `outputPrice`, `supportsTools`, `supportsImages`, etc.
+
+- [x] 13. Read `apps/vscode/src/core/controller/models/providerCatalogShared.ts` fully — REVIEWED: Host-side provider catalog bridging gRPC ↔ SDK. Functions: `readProviderConfig`, `writeProviderConfig`, `resolveProviderModels`, `toProtobufModelInfo`, `toRedactedProviderConfigResponse`.
+
+- [x] 14. Read `sdk/packages/core/src/services/llms/provider-settings.ts` fully — REVIEWED: Host-side provider settings management. `ProviderSettingsManager` handles persistence. `getProviderSettings()`, `saveProviderSettings()`, `deleteProviderSettings()`.
+
+- [x] 15. Read `apps/vscode/proto/cline/models.proto` + `models.proto` RPC patterns — DOCUMENTED: Service = `ModelsService`. RPCs: `getOllamaModels`, `getLmStudioModels`, `readProviderConfig`, `writeProviderConfig`, `resolveProviderModels`, `listProviders`, `commitModelSelection`. Pattern: request message → `Empty` or specific response message.
 
 ---
 
