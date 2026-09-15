@@ -763,6 +763,17 @@ const clinePass = createClineLikeSpec({
  */
 const OPENAI_COMPATIBLE_SPEC_OVERRIDES: BuiltinSpecOverride[] = [
 	{
+		id: "local-gguf",
+		name: "Local GGUF",
+		description: "Run a local .gguf model file directly",
+		family: "openai-compatible",
+		popular: 100,
+		capabilities: ["tools"],
+		defaultModelId: "local-model",
+		apiKeyEnv: [],
+		defaults: { baseUrl: "" },
+	},
+	{
 		id: "opencode-go",
 		docsUrl: "https://opencode.ai/docs/go/",
 		defaults: { headers: { "User-Agent": "Cline/SDK" } },

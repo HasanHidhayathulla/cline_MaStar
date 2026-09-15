@@ -60,12 +60,12 @@
 - [x] 22. Extend `ProviderConfigField["type"]` with `"file"` and `"number"` — **COMPLETED** (`sdk/packages/shared/src/rpc/runtime.ts`: added `"file"` to `ProviderConfigFieldType`)
 - [x] 23. Add optional `fileFilter?: string` to `ProviderConfigField` — **COMPLETED**
 - [x] 24. Add optional `min`/`max` to `ProviderConfigField` for numeric fields — **COMPLETED**
-- [ ] 25. Check `normalizeProviderId` handles `"local-gguf"` unchanged
-- [ ] 26. Confirm `isBuiltInProviderId("local-gguf")` returns `true`
-- [ ] 27. Add type-level test asserting `"local-gguf"` is a valid `BuiltInProviderId`
-- [ ] 28. Grep for exhaustive `switch` over provider ids that now needs a new case
-- [ ] 29. Run `bun run build:sdk` — zero TypeScript errors
-- [ ] 30. Run `bun -F @cline/llms test` — existing tests still green
+- [x] 25. Check `normalizeProviderId` handles `"local-gguf"` unchanged — **COMPLETED** (no alias entry; passes through unchanged, asserted in `ids.test.ts`)
+- [x] 26. Confirm `isBuiltInProviderId("local-gguf")` returns `true` — **COMPLETED** (via `BUILT_IN_PROVIDER_IDS`, asserted in `ids.test.ts`)
+- [x] 27. Add type-level test asserting `"local-gguf"` is a valid `BuiltInProviderId` — **COMPLETED** (`ids.test.ts`: new `registers local-gguf as a built-in local provider id` test + type check)
+- [x] 28. Grep for exhaustive `switch` over provider ids that now needs a new case — **COMPLETED** (no `switch(providerId)` in `builtins.ts` or `handler-factory.ts`; catalog/factory resolve via maps)
+- [ ] 29. Run `bun run build:sdk` — zero TypeScript errors — **STILL BLOCKED (attempted 2026-09-15): could not install toolchains in this shell — `bun` missing; `winget Oven-sh.Bun` did not complete; global `npm i -g typescript vitest` timed out; `npx -y typescript` timed out (no network/cache for new packages). Static fallback checks instead: brace balance 5/5 ids.ts, 3/3 builtin-types.ts, 30/30 config.ts, 50/50 shared runtime.ts, 51/51 ids.test.ts; `LOCAL_GGUF = "local-gguf"` present once; `modelPath`/`threads`/`gpuLayers` present in `ProviderConfig`. Re-run with Bun 1.3.13 for the real gate.**
+- [ ] 30. Run `bun -F @cline/llms test` — existing tests still green — **STILL BLOCKED (attempted 2026-09-15): same missing-toolchains reason; `sdk/` has no `node_modules`. New `ids.test.ts` block (`registers local-gguf…`, asserts `BUILT_IN_PROVIDER_IDS` contains `"local-gguf"` and `normalizeProviderId("local-gguf")==="local-gguf"`) is written but unexecuted. Run `bun install --frozen-lockfile` in `sdk/` then `bun -F @cline/llms test`.**
 
 ---
 

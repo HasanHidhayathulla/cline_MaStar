@@ -106,6 +106,11 @@ describe("provider-ids", () => {
 		);
 	});
 
+	it("registers local-gguf as a built-in local provider id", () => {
+		expect(BUILT_IN_PROVIDER_IDS).toContain("local-gguf");
+		expect(normalizeProviderId("local-gguf")).toBe("local-gguf");
+	});
+
 	it("registers ClinePass as a distinct Cline-compatible built-in provider", async () => {
 		expect(BUILT_IN_PROVIDER_IDS).toContain("cline-pass");
 		const models = await getModelsForProvider("cline-pass");
