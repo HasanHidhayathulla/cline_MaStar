@@ -186,7 +186,8 @@ export type ProviderConfigFieldType =
 	| "url"
 	| "number"
 	| "select"
-	| "boolean";
+	| "boolean"
+	| "file";
 
 export type ProviderConfigFieldPrimitive = string | number | boolean | null;
 
@@ -203,6 +204,9 @@ export interface ProviderConfigField {
 	placeholder?: string;
 	required?: boolean;
 	secret?: boolean;
+	fileFilter?: string;
+	min?: number;
+	max?: number;
 	options?: ProviderConfigFieldOption[];
 	defaultValue?: ProviderConfigFieldPrimitive;
 }

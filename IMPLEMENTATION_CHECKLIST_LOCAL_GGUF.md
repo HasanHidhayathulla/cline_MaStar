@@ -57,9 +57,9 @@
 - [x] 19. Add optional `modelPath?: string` to `ProviderConfig` in `config.ts` — **COMPLETED**
 - [x] 20. Add optional `threads?: number` to `ProviderConfig` — **COMPLETED**
 - [x] 21. Add optional `gpuLayers?: number` to `ProviderConfig` — **COMPLETED**
-- [ ] 22. Extend `ProviderConfigField["type"]` with `"file"` and `"number"`
-- [ ] 23. Add optional `fileFilter?: string` to `ProviderConfigField`
-- [ ] 24. Add optional `min`/`max` to `ProviderConfigField` for numeric fields
+- [x] 22. Extend `ProviderConfigField["type"]` with `"file"` and `"number"` — **COMPLETED** (`sdk/packages/shared/src/rpc/runtime.ts`: added `"file"` to `ProviderConfigFieldType`)
+- [x] 23. Add optional `fileFilter?: string` to `ProviderConfigField` — **COMPLETED**
+- [x] 24. Add optional `min`/`max` to `ProviderConfigField` for numeric fields — **COMPLETED**
 - [ ] 25. Check `normalizeProviderId` handles `"local-gguf"` unchanged
 - [ ] 26. Confirm `isBuiltInProviderId("local-gguf")` returns `true`
 - [ ] 27. Add type-level test asserting `"local-gguf"` is a valid `BuiltInProviderId`
