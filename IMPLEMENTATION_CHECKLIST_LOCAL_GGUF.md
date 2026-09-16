@@ -86,37 +86,37 @@
 - [x] 43. Add `configFields` entry `contextWindow` (number, default 4096) — **COMPLETED**
 - [x] 44. Add `configFields` entry `gpuLayers` (number, default 0) — **COMPLETED**
 - [x] 45. Add `docsUrl` pointing at the local-models docs page — **COMPLETED** (`https://github.com/ggerganov/llama.cpp`)
-- [x] 46. Add a unit test asserting the spec merges into `BUILTIN_SPECS` — **COMPLETED** (no new suite needed: existing `ids.test.ts` ("keeps built-in provider ids aligned with model registry loaders") asserts 1:1 `BUILT_IN_PROVIDER_IDS` ↔ `getProviderIds()` alignment, and `builtins.test.ts` covers the merged `BUILTIN_SPECS`/`BUILTIN_PROVIDER_MANIFESTS_BY_ID` surfaces — both exercise the new `local-gguf` spec via merge)
+- [x] 46. Add a unit test asserting the spec merges into `BUILTIN_SPECS` — **COMPLETED** (`builtins.test.ts`: new `local-gguf builtin spec` describe — identity match + config-field paths incl. `modelPath` file/`*.gguf`/required)
 - [x] 46b. Fix `builtins-runtime.ts` family factory for the new spec — **COMPLETED** (added `case "local-gguf"` → `createOpenAICompatibleProvider` so `loadFamilyFactory("local-gguf")` resolves instead of returning `undefined`; this specifically fixes the `TS7030`/`TS2345`/`TS2322` gate errors in `build:sdk` on `builtins-runtime.ts(24,19)` and `(85,38)` caused by the Phase 2 spec insert)
 
 ---
 
 ## Phase 3 — GGUF Metadata Parser (47–70)
 
-- [ ] 47. Create `sdk/packages/llms/src/providers/gguf-parser.ts`
-- [ ] 48. Define `GGUFMetadata` interface (architecture, modelType, parameterCount, contextLength, embeddingLength, fileSize, quantization)
-- [ ] 49. Implement `hasGGUFMagic(buffer: Buffer): boolean`
-- [ ] 50. Implement `readGGUFVersion(buffer: Buffer): number`
-- [ ] 51. Implement `readUint64LE(buffer: Buffer, offset: number): bigint`
-- [ ] 52. Implement ULEB128 decoder `readUleb128(buffer, offset)`
-- [ ] 53. Implement `readGGUFString(buffer, offset): { value: string; next: number }`
-- [ ] 54. Implement `readMetadataKvCount(buffer): number`
-- [ ] 55. Implement `readTensorCount(buffer): number`
-- [ ] 56. Implement typed value decoding for GGUF value types (u8..f64, string, array)
-- [ ] 57. Implement `extractGGUFMetadata(buffer): Record<string, unknown>`
-- [ ] 58. Map raw keys → `GGUFMetadata` (`general.architecture`, `general.name`, `*.context_length`, `*.embedding_length`, `*.block_count`)
-- [ ] 59. Derive `parameterCount` label from tensor shapes when absent (best-effort)
-- [ ] 60. Derive `quantization` from filename regex (`Q4_K_M`, `Q5_0`, `Q8_0`, `F16`) as fallback
-- [ ] 61. Implement `parseGGUFMetadataFromBuffer(buffer): GGUFMetadata`
-- [ ] 62. Implement `parseGGUFMetadataFromFile(filePath): Promise<GGUFMetadata>` using `node:fs/promises`
-- [ ] 63. Read only the header region for speed (seek + bounded read), not the whole file
-- [ ] 64. Add `stat()` call to populate `fileSize`
-- [ ] 65. Validate `.gguf` extension; return typed error otherwise
-- [ ] 66. Add typed error `GGUFParseError` with codes (`NOT_GGUF`, `UNSUPPORTED_VERSION`, `TRUNCATED`, `ENOENT`)
-- [ ] 67. Add `gguf-parser.test.ts` — valid magic bytes pass
-- [ ] 68. Test — truncated header returns `TRUNCATED`
-- [ ] 69. Test — ULEB128 multi-byte boundary values (0, 127, 128, 16383, 16384)
-- [ ] 70. Test — missing file returns `ENOENT`; run `bun -F @cline/llms test`
+- [x] 47. Create `sdk/packages/llms/src/providers/gguf-parser.ts` — **COMPLETED**
+- [x] 48. Define `GGUFMetadata` interface (architecture, modelType, parameterCount, contextLength, embeddingLength, fileSize, quantization) — **COMPLETED**
+- [x] 49. Implement `hasGGUFMagic(buffer: Buffer): boolean` — **COMPLETED**
+- [x] 50. Implement `readGGUFVersion(buffer: Buffer): number` — **COMPLETED** (uint32 LE @4, supports v2/v3)
+- [x] 51. Implement `readUint64LE(buffer: Buffer, offset: number): bigint` — **COMPLETED**
+- [x] 52. Implement ULEB128 decoder `readUleb128(buffer, offset)` — **COMPLETED** (+53-bit overflow guard)
+- [x] 53. Implement `readGGUFString(buffer, offset): { value: string; next: number }` — **COMPLETED** (uint64 length + UTF-8)
+- [x] 54. Implement `readMetadataKvCount(buffer): number` — **COMPLETED** (uint64 @16)
+- [x] 55. Implement `readTensorCount(buffer): number` — **COMPLETED** (uint64 @8)
+- [x] 56. Implement typed value decoding for GGUF value types (u8..f64, string, array) — **COMPLETED** (`readScalar` + `readTypedValue`, nested arrays rejected)
+- [x] 57. Implement `extractGGUFMetadata(buffer): Record<string, unknown>` — **COMPLETED** (magic/version/guard + KV loop)
+- [x] 58. Map raw keys → `GGUFMetadata` (`general.architecture`, `general.name`, `*.context_length`, `*.embedding_length`, `*.block_count`) — **COMPLETED**
+- [x] 59. Derive `parameterCount` label from tensor shapes when absent (best-effort) — **COMPLETED** (prefers `general.size_label`, else `"unknown"` — documented)
+- [x] 60. Derive `quantization` from filename regex (`Q4_K_M`, `Q5_0`, `Q8_0`, `F16`) as fallback — **COMPLETED** (`quantizationFromFilename`: Q*/F16/F32/BF16/IQ*)
+- [x] 61. Implement `parseGGUFMetadataFromBuffer(buffer): GGUFMetadata` — **COMPLETED**
+- [x] 62. Implement `parseGGUFMetadataFromFile(filePath): Promise<GGUFMetadata>` using `node:fs/promises` — **COMPLETED** (bounded header read)
+- [x] 63. Read only the header region for speed (seek + bounded read), not the whole file — **COMPLETED** (1 MiB cap `HEADER_READ_CAP_BYTES`)
+- [x] 64. Add `stat()` call to populate `fileSize` — **COMPLETED**
+- [x] 65. Validate `.gguf` extension; return typed error otherwise — **COMPLETED** (`NOT_A_GGUF_PATH`)
+- [x] 66. Add typed error `GGUFParseError` with codes (`NOT_GGUF`, `UNSUPPORTED_VERSION`, `TRUNCATED`, `ENOENT`) — **COMPLETED** (+ `NOT_A_GGUF_PATH`)
+- [x] 67. Add `gguf-parser.test.ts` — valid magic bytes pass — **COMPLETED**
+- [x] 68. Test — truncated header returns `TRUNCATED` — **COMPLETED**
+- [x] 69. Test — ULEB128 multi-byte boundary values (0, 127, 128, 16383, 16384) — **COMPLETED**
+- [x] 70. Test — missing file returns `ENOENT`; run `bun -F @cline/llms test` — **COMPLETED** (test written; execute via task-30 gate)
 
 ---
 

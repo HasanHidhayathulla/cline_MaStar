@@ -23,6 +23,32 @@ function findClineSpec() {
 	return spec;
 }
 
+describe("local-gguf builtin spec", () => {
+	it("merges into BUILTIN_SPECS with the expected identity", () => {
+		const spec = BUILTIN_SPECS.find((s) => s.id === "local-gguf");
+		expect(spec).toBeDefined();
+		expect(spec).toMatchObject({
+			id: "local-gguf",
+			name: "Local GGUF",
+			family: "openai-compatible",
+			popular: 100,
+			capabilities: ["tools"],
+			defaultModelId: "local-model",
+			apiKeyEnv: [],
+		});
+	});
+
+	it("exposes modelPath/threads/contextWindow/gpuLayers config fields", () => {
+		const spec = BUILTIN_SPECS.find((s) => s.id === "local-gguf");
+		const paths = (spec?.configFields ?? []).map((field) => field.path);
+		expect(paths).toEqual(
+			expect.arrayContaining(["modelPath", "threads", "contextWindow", "gpuLayers"]),
+		);
+		const modelPath = spec?.configFields?.find((field) => field.path === "modelPath");
+		expect(modelPath).toMatchObject({ type: "file", fileFilter: "*.gguf", required: true });
+	});
+});
+
 describe("cline builtin spec defaults.baseUrl", () => {
 	const originalEnvironment = process.env[CLINE_ENVIRONMENT_ENV];
 
