@@ -6,6 +6,13 @@ import {
 	createSapAiCoreProvider,
 } from "./ai-sdk";
 import { BUILTIN_PROVIDER_REGISTRATIONS } from "./builtins-runtime";
+import {
+	createHandler,
+	getRegisteredHandler,
+	hasRegisteredHandler,
+	isRegisteredHandlerAsync,
+} from "./factory-registry";
+import { GGUFParseError } from "./gguf-parser";
 import { createGateway } from "./gateway";
 import { BUILT_IN_PROVIDER_IDS, normalizeProviderId } from "./ids";
 import {
@@ -109,6 +116,44 @@ describe("provider-ids", () => {
 	it("registers local-gguf as a built-in local provider id", () => {
 		expect(BUILT_IN_PROVIDER_IDS).toContain("local-gguf");
 		expect(normalizeProviderId("local-gguf")).toBe("local-gguf");
+	});
+
+	it("registers local-gguf in the custom handler registry (tasks 102–105)", () => {
+		expect(hasRegisteredHandler("local-gguf")).toBe(true);
+		expect(isRegisteredHandlerAsync("local-gguf")).toBe(false);
+	});
+
+	it("builds a local-gguf handler from a valid config (task 103)", () => {
+		const handler = getRegisteredHandler("local-gguf", {
+			providerId: "local-gguf",
+			modelId: "local-model",
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 2,
+			gpuLayers: 0,
+			contextWindow: 4096,
+		});
+		expect(handler).toBeDefined();
+		expect(typeof handler?.createMessage).toBe("function");
+		expect(typeof handler?.getModel).toBe("function");
+	});
+
+	it("routes createHandler('local-gguf') to the registered handler (task 105)", () => {
+		const handler = createHandler({
+			providerId: "local-gguf",
+			modelId: "local-model",
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+		});
+		expect(handler).toBeDefined();
+		expect(typeof handler.createMessage).toBe("function");
+	});
+
+	it("rejects a local-gguf factory call without modelPath (task 112)", () => {
+		expect(() =>
+			getRegisteredHandler("local-gguf", {
+				providerId: "local-gguf",
+				modelId: "local-model",
+			}),
+		).toThrowError(GGUFParseError);
 	});
 
 	it("registers ClinePass as a distinct Cline-compatible built-in provider", async () => {

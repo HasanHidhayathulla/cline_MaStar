@@ -347,6 +347,8 @@ export interface ProviderConfig
 	threads?: number;
 	/** Number of GPU layers to offload (0 = CPU only) */
 	gpuLayers?: number;
+	/** Requested context window in tokens (local providers) */
+	contextWindow?: number;
 }
 
 /**

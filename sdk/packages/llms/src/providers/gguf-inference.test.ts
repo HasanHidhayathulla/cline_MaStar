@@ -65,7 +65,7 @@ describe("gguf-inference", () => {
 		const handler = new GGUFInferenceHandler(baseConfig());
 		expect(handler.getMetadata()).toBeUndefined();
 		expect(handler.getModel().id).toBe("local-model");
-		expect(handler.getModel().info.supportsTools).toBe(true);
+		expect(handler.getModel().info.capabilities).toContain("tools");
 		expect(handler.getServerPort()).toBe(0);
 	});
 

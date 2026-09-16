@@ -159,3 +159,38 @@ export function isRegisteredHandlerAsync(providerId: string): boolean {
 	const entry = customHandlerRegistry.get(providerId);
 	return entry?.isAsync ?? false;
 }
+
+// =============================================================================
+// Built-in local provider handlers (registered at module load)
+// =============================================================================
+
+import { GGUFInferenceHandler } from "./gguf-inference";
+import { GGUFParseError } from "./gguf-parser";
+
+/**
+ * `local-gguf` handler factory (tasks 99–104).
+ *
+ * Maps `ProviderConfig` fields onto the inference bridge:
+ * - `modelPath` (required) — .gguf file on disk
+ * - `threads` / `gpuLayers` — llama-server tunables (checked in Phase-1 config)
+ *
+ * Registered synchronously: the factory itself is cheap (no I/O). Spawning
+ * llama-server happens lazily in `initialize()`/`createMessage` so merely
+ * building a handler never blocks.
+ */
+registerHandler("local-gguf", (config: ProviderConfig): ApiHandler => {
+	if (!config.modelPath || config.modelPath.trim().length === 0) {
+		throw new GGUFParseError(
+			"NOT_A_GGUF_PATH",
+			"local-gguf requires a `modelPath` pointing to a .gguf model file",
+		);
+	}
+	return new GGUFInferenceHandler({
+		modelPath: config.modelPath,
+		threads: config.threads ?? 4,
+		contextWindow: config.contextWindow ?? 4096,
+		gpuLayers: config.gpuLayers ?? 0,
+	});
+});
+
+export { GGUFParseError as LocalGGUFParseError };

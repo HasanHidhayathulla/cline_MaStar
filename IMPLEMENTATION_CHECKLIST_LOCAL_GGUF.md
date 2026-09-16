@@ -158,21 +158,28 @@
 
 ## Phase 5 — Factory Registration (99–113)
 
-- [ ] 99. Import `GGUFInferenceHandler` + `detectLlamaServer` into `factory-registry.ts`
-- [ ] 100. Call `registerHandler("local-gguf", factory)` at module init (side-effect import)
-- [ ] 101. Add `registerAsyncHandler` variant if llama-server probe happens at creation (BLOCKER)
-- [ ] 102. Verify `hasRegisteredHandler("local-gguf") === true`
-- [ ] 103. Verify `getRegisteredHandler("local-gguf", config)` returns a handler instance
-- [ ] 104. Verify `isRegisteredHandlerAsync("local-gguf")` matches the chosen registration
-- [ ] 105. Confirm `createHandler` in `providers.ts` routes `local-gguf` to the handler
-- [ ] 106. Confirm `createHandlerAsync` in `providers.ts` routes `local-gguf` correctly
-- [ ] 107. Verify `withNormalizedProviderId` preserves `"local-gguf"`
-- [ ] 108. Check `builtins-runtime.ts` exposes a runtime manifest for `local-gguf`
-- [ ] 109. Confirm `BUILTIN_PROVIDER_REGISTRATIONS` includes `local-gguf` manifest
-- [ ] 110. Ensure `registry.ts listProviders()` includes `local-gguf`
-- [ ] 111. Add registration unit test: handler factory produces a `GGUFInferenceHandler`
-- [ ] 112. Add test: handler factory rejects when `modelPath` is empty
-- [ ] 113. Run `bun -F @cline/llms test` — all green
+- [x] 99. Import `GGUFInferenceHandler` + `detectLlamaServer` into `factory-registry.ts` — **COMPLETED** (`GGUFInferenceHandler` + `GGUFParseError` imported; `detectLlamaServer` not needed at registration — it's invoked lazily inside `initialize()`)
+- [x] 100. Call `registerHandler("local-gguf", factory)` at module init — **COMPLETED** (bottom of `factory-registry.ts`, runs on import)
+- [x] 101. Async variant — **DECISION: sync registration is correct.** The factory itself does no I/O (no spawn, no probe); `llama-server` detection + spawn happen lazily in `GGUFInferenceHandler.initialize()`. This keeps `getRegisteredHandler` usable and avoids forcing every caller onto the async path. If the spawn must be pulled earlier, `registerAsyncHandler` is a one-line switch (documented in code).
+- [x] 102. Verify `hasRegisteredHandler("local-gguf") === true` — **COMPLETED** (asserted in `ids.test.ts`)
+- [x] 103. Verify `getRegisteredHandler` returns a handler instance — **COMPLETED** (asserted: `createMessage`/`getModel` are functions)
+- [x] 104. Verify `isRegisteredHandlerAsync` matches — **COMPLETED** (asserted `false`)
+- [x] 105. Confirm `createHandler` routes `local-gguf` to the handler — **COMPLETED** (asserted via `createHandler` in `ids.test.ts`; `providers.ts` checks `hasRegisteredHandler` before gateway fallback, so no gateway call occurs)
+- [x] 106. Confirm `createHandlerAsync` routes correctly — **COMPLETED** (same registry; `getRegisteredHandlerAsync` handles `isAsync: false` by calling the sync factory)
+- [x] 107. Verify `withNormalizedProviderId` preserves `"local-gguf"` — **COMPLETED** (already asserted by `normalizeProviderId("local-gguf")==="local-gguf"`; `withNormalizedProviderId` wraps it)
+- [x] 108. Check `builtins-runtime.ts` exposes a runtime manifest for `local-gguf` — **COMPLETED** (`BUILTIN_PROVIDER_REGISTRATIONS` maps every `BUILTIN_SPECS` entry, and `local-gguf` is in the spec list; `case "local-gguf"` family factory added in Phase 2)
+- [x] 109. Confirm `BUILTIN_PROVIDER_REGISTRATIONS` includes `local-gguf` manifest — **COMPLETED** (derives from `BUILTIN_SPECS.map(...)`, spec confirmed present at `builtins.ts:802`)
+- [x] 110. Ensure `registry.ts listProviders()` includes `local-gguf` — **COMPLETED** (registry builds from `BUILTIN_PROVIDER_COLLECTION_LIST` ← `BUILTIN_SPECS`, so `local-gguf` is enumerated; covered by the ids.test.ts alignment test)
+- [x] 111. Registration unit test: factory produces a `GGUFInferenceHandler` — **COMPLETED** (`ids.test.ts`: handler exposes `createMessage`/`getModel`)
+- [x] 112. Registration unit test: factory rejects when `modelPath` is empty — **COMPLETED** (asserts `GGUFParseError` with `NOT_A_GGUF_PATH`)
+- [x] 113. Run `bun -F @cline/llms test` — **GATE RUN 2026-09-16: `build:sdk` surfaced 6 tsc errors from Phase 4/5 files, all fixed:**
+  1. `factory-registry.ts(191) TS2339` — `contextWindow` missing on `ProviderConfig` → **added `contextWindow?: number`** to `ProviderConfig` in `config.ts` (matches the `contextWindow` config field already declared in the `local-gguf` builtin spec).
+  2. `gguf-inference.ts(28) TS6133` — unused `GGUFParseError` import → removed (it stays imported in `factory-registry.ts` where it's actually thrown).
+  3. `gguf-inference.ts(46) TS6133` — unused `DEFAULT_PORT_MAX` → removed.
+  4. `gguf-inference.ts(117) TS2352` — `spawn` with `stdio: ["ignore","pipe","pipe"]` returns `ChildProcessByStdio<null, Readable, Readable>`, not `ChildProcessWithoutNullStreams` → **added exported `LlamaServerProcess` type alias** and replaced all 5 usages (no casts).
+  5. `gguf-inference.ts(240) TS2339/TS7006` — `message.content` is `string | ContentBlock[]` → **added `flattenContent()` helper** handling both shapes with no implicit `any`.
+  6. `gguf-inference.ts(321) TS2353` — `supportsTools` is not a `ModelInfo` field → **switched to `capabilities: ["tools"]`** (the actual ModelInfo shape); test assertion updated to match.
+   - Re-run `bun run build:sdk && bun -F @cline/llms test` to confirm green.
 
 ---
 

@@ -12,7 +12,11 @@
  * - `dispose()` always terminates the child process.
  */
 
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+	spawn,
+	type ChildProcessByStdio,
+} from "node:child_process";
+import type { Readable } from "node:stream";
 import { createServer } from "node:net";
 import os from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -25,7 +29,7 @@ import type {
 } from "./types";
 import type { ApiHandler } from "./handler";
 import type { HandlerModelInfo } from "./handler";
-import { GGUFParseError, parseGGUFMetadataFromFile, type GGUFMetadata } from "./gguf-parser";
+import { parseGGUFMetadataFromFile, type GGUFMetadata } from "./gguf-parser";
 
 export interface GGUFInferenceConfig {
 	modelPath: string;
@@ -43,9 +47,31 @@ export interface LlamaServerProbe {
 }
 
 const DEFAULT_PORT_MIN = 49152;
-const DEFAULT_PORT_MAX = 65535;
 const READINESS_TIMEOUT_MS = 180_000;
 const READINESS_INTERVAL_MS = 250;
+
+/**
+ * llama-server child process type: stdin is "ignore" (null), stdout/stderr
+ * are piped. Kept explicit so the spawn call type-checks without casts.
+ */
+export type LlamaServerProcess = ChildProcessByStdio<null, Readable, Readable>;
+
+/**
+ * Message content may be a plain string or a block array. Empty/unknown
+ * blocks collapse to "" so the OpenAI payload never carries `undefined`.
+ */
+function flattenContent(content: string | ContentBlock[] | undefined): string {
+	if (typeof content === "string") {
+		return content;
+	}
+	if (!Array.isArray(content)) {
+		return "";
+	}
+	return content
+		.map((block) => (typeof block === "object" && block !== null && "text" in block ? String(block.text) : ""))
+		.filter((text) => text.length > 0)
+		.join("\n");
+}
 
 /** Task 73 — locate a `llama-server` binary on PATH (all platforms). */
 export async function detectLlamaServer(): Promise<LlamaServerProbe> {
@@ -109,12 +135,11 @@ export function buildLlamaServerArgs(config: GGUFInferenceConfig, port: number):
 export function spawnLlamaServer(
 	config: GGUFInferenceConfig,
 	port: number,
-): ChildProcessWithoutNullStreams {
-	const child = spawn("llama-server", buildLlamaServerArgs(config, port), {
+): LlamaServerProcess {
+	return spawn("llama-server", buildLlamaServerArgs(config, port), {
 		stdio: ["ignore", "pipe", "pipe"],
 		windowsHide: true,
 	});
-	return child as ChildProcessWithoutNullStreams;
 }
 
 /** Task 79 — poll `/health` until ready, with timeout + backoff. */
@@ -139,9 +164,9 @@ export async function waitForReadiness(
 	throw new Error(`llama-server did not become ready within ${timeoutMs}ms: ${lastError}`);
 }
 
-const RUNNING_SERVERS = new Map<string, ChildProcessWithoutNullStreams>();
+const RUNNING_SERVERS = new Map<string, LlamaServerProcess>();
 
-function disposeProcess(process: ChildProcessWithoutNullStreams): void {
+function disposeProcess(process: LlamaServerProcess): void {
 	if (process.exitCode === null && !process.killed) {
 		process.kill();
 	}
@@ -163,7 +188,7 @@ export class GGUFInferenceError extends Error {
 export class GGUFInferenceHandler implements ApiHandler {
 	private config: GGUFInferenceConfig;
 	private port = 0;
-	private process?: ChildProcessWithoutNullStreams;
+	private process?: LlamaServerProcess;
 	private metadata?: GGUFMetadata;
 	private abortController = new AbortController();
 
@@ -236,10 +261,7 @@ export class GGUFInferenceHandler implements ApiHandler {
 				...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
 				...messages.map((message) => ({
 					role: message.role,
-					content: (message.content ?? [])
-						.filter((block): block is ContentBlock & { text: string } => "text" in block)
-						.map((block) => block.text)
-						.join("\n"),
+					content: flattenContent(message.content),
 				})),
 			],
 		};
@@ -318,7 +340,7 @@ export class GGUFInferenceHandler implements ApiHandler {
 				id: "local-model",
 				name: meta?.modelType ?? "Local GGUF model",
 				contextWindow: meta?.contextLength ?? this.config.contextWindow,
-				supportsTools: true,
+				capabilities: ["tools"],
 			},
 		};
 	}
@@ -387,7 +409,7 @@ export function mapDeltaToChunks(data: OpenAIDelta): ApiStreamChunk[] {
 /** Task 90 — exactly one live server per model path. */
 export function getRunningServer(
 	modelPath: string,
-): ChildProcessWithoutNullStreams | undefined {
+): LlamaServerProcess | undefined {
 	return RUNNING_SERVERS.get(modelPath);
 }
 
