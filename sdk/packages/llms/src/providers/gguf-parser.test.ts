@@ -108,7 +108,18 @@ describe("gguf-parser", () => {
 	it("reads uint64 and GGUF strings", () => {
 		const header = buildHeader([]);
 		expect(readUint64LE(header, 8)).toBe(0n);
-		expect(readGGUFString(Buffer.concat([Buffer.alloc(0)]), 0)).toBeDefined;
+
+		// GGUF string: uint64 length + UTF-8 payload.
+		const encoded = Buffer.from("hello gguf", "utf8");
+		const parts: number[] = [];
+		pushU64(parts, encoded.length);
+		for (const b of encoded) {
+			parts.push(b);
+		}
+		const stringBuffer = Buffer.from(parts);
+		const parsed = readGGUFString(stringBuffer, 0);
+		expect(parsed.value).toBe("hello gguf");
+		expect(parsed.next).toBe(stringBuffer.length);
 	});
 
 	it("extracts metadata key-values into a record", () => {
