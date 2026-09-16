@@ -75,6 +75,13 @@ async function loadFamilyFactory(
 				const module = await import("./ai-sdk");
 				return module.createOllamaProvider;
 			}
+			case "local-gguf": {
+				// Local GGUF runs through llama-server, which exposes an
+				// OpenAI-compatible HTTP API — reuse the OpenAI-compatible
+				// family factory until a dedicated GGUF vendor exists.
+				const module = await import("./ai-sdk");
+				return module.createOpenAICompatibleProvider;
+			}
 			case "sap-ai-core": {
 				const module = await import("./ai-sdk");
 				return module.createSapAiCoreProvider;

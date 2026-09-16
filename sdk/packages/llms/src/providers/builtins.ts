@@ -100,6 +100,42 @@ const OPENROUTER_STICKY_SESSION_METADATA: GatewayProviderMetadata = {
  */
 export const OLLAMA_DEFAULT_CONTEXT_WINDOW = 32768;
 
+const LOCAL_GGUF_CONFIG_FIELDS: readonly ProviderConfigField[] = [
+	{
+		path: "modelPath",
+		label: "GGUF Model File",
+		type: "file",
+		fileFilter: "*.gguf",
+		placeholder: "/path/to/model.gguf",
+		description: "Path to the .gguf model file on your machine.",
+		required: true,
+	},
+	{
+		path: "threads",
+		label: "CPU Threads",
+		type: "number",
+		description: "Number of CPU threads to use for inference.",
+		min: 1,
+		defaultValue: 4,
+	},
+	{
+		path: "contextWindow",
+		label: "Context Window",
+		type: "number",
+		description: "Maximum context window in tokens. Also persisted to the provider config.",
+		min: 1,
+		defaultValue: 4096,
+	},
+	{
+		path: "gpuLayers",
+		label: "GPU Layers",
+		type: "number",
+		description: "Number of model layers to offload to GPU (0 = CPU only).",
+		min: 0,
+		defaultValue: 0,
+	},
+];
+
 export type {
 	BuiltinSpec,
 	ProviderApiLine,
@@ -771,7 +807,9 @@ const OPENAI_COMPATIBLE_SPEC_OVERRIDES: BuiltinSpecOverride[] = [
 		capabilities: ["tools"],
 		defaultModelId: "local-model",
 		apiKeyEnv: [],
+		docsUrl: "https://github.com/ggerganov/llama.cpp",
 		defaults: { baseUrl: "" },
+		configFields: LOCAL_GGUF_CONFIG_FIELDS,
 	},
 	{
 		id: "opencode-go",
