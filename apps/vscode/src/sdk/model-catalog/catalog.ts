@@ -1,5 +1,5 @@
 import { listLocalProviders, type ModelCatalogConfig, resolveProviderConfig } from "@cline/core"
-import { type ProviderConfig, resolveProviderUsageCostDisplay } from "@cline/llms"
+import { GGUFParseError, type ProviderConfig, resolveProviderUsageCostDisplay } from "@cline/llms"
 import { type ProviderListItem } from "@cline/shared"
 import { getProviderSettingsManager } from "../provider-migration"
 import type {
@@ -19,6 +19,7 @@ import type {
 import { providerAllowsCustomModelIds } from "./custom-model-ids"
 import { computeConfigFingerprint } from "./fingerprint"
 import { applyHostModelInfoOverrides } from "./host-overrides"
+import { resolveLocalModelFileModels, resolveLocalModelFilePath, toLocalModelFileCatalogError } from "./local-model-file"
 import { parseProviderId } from "./provider-id"
 import { toSdkProviderId } from "./sdk-provider-id"
 import { adaptSdkModelInfo, CatalogShapeError } from "./shape-adapter"
@@ -202,7 +203,24 @@ async function resolveSdkModels(
 	config: EffectiveProviderConfig,
 	selection: ModelSelection | undefined,
 	now: () => number,
+	forceRefresh: boolean | undefined,
 ): Promise<ProviderModelsRecord> {
+	const modelPath = resolveLocalModelFilePath(config)
+	if (modelPath) {
+		// File-backed provider: the file the user selected *is* the model list,
+		// so there is no SDK catalog to join. Failures throw and are turned into
+		// `ok: false` by the caller's toCatalogError funnel.
+		const models = await resolveLocalModelFileModels(config, { forceRefresh })
+		return {
+			ok: true,
+			providerId,
+			configFingerprint: fingerprint,
+			models,
+			defaultModelId: chooseDefaultModelId(undefined, models),
+			source: "host-adapter",
+			fetchedAt: now(),
+		}
+	}
 	const sdkProviderId = toSdkProviderId(providerId)
 	const resolved = await resolveProviderConfig(
 		sdkProviderId,
@@ -228,6 +246,11 @@ async function resolveSdkModels(
 }
 
 function toCatalogError(error: unknown): CatalogError {
+	if (error instanceof GGUFParseError) {
+		// Local model-file failures ("file moved", "not a GGUF file") are
+		// actionable picker states, not opaque unknowns.
+		return toLocalModelFileCatalogError(error)
+	}
 	if (error instanceof CatalogShapeError) {
 		return {
 			kind: "shape",
@@ -317,7 +340,7 @@ export function createProviderCatalog(reader: ProviderConfigReader): ProviderCat
 					providerId,
 					fingerprint,
 					forceRefresh: options?.forceRefresh,
-					load: () => resolveSdkModels(providerId, fingerprint, config, selection, now),
+					load: () => resolveSdkModels(providerId, fingerprint, config, selection, now, options?.forceRefresh),
 				})
 			} catch (error) {
 				result = {

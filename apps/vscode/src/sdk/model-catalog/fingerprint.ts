@@ -173,6 +173,9 @@ export function computeConfigFingerprint(providerId: ProviderId, config: Effecti
 		// The context window is not a secret; include it raw so changes
 		// invalidate cached model lists.
 		contextWindow: config.contextWindow ?? null,
+		// The selected local model file is not a secret either, and it changes
+		// the resolved model list, so it must change the fingerprint.
+		modelPath: config.modelPath ?? null,
 		extras: sanitizeExtras(config.extras),
 		auth: {
 			accountId: config.auth?.accountId ?? null,

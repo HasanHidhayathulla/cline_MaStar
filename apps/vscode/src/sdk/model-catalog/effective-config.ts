@@ -21,6 +21,7 @@ type ProviderSettingsLike = {
 	readonly contextWindow?: number
 	readonly auth?: AuthConfig
 	readonly extras?: ExtrasConfig
+	readonly modelPath?: string
 }
 
 const apiKeyFields: Partial<Record<string, keyof ApiConfiguration>> = {
@@ -217,6 +218,7 @@ function readProviderSettings(providerId: ProviderId): ConfigParts {
 			contextWindow: readPositiveInteger(settings.contextWindow),
 			auth: readAuth(settings),
 			extras: isPlainRecord(settings.extras) ? settings.extras : undefined,
+			modelPath: readString(settings, "modelPath"),
 		} satisfies ProviderSettingsLike
 	} catch {
 		return {}
@@ -398,6 +400,10 @@ export function buildEffectiveProviderConfig(providerId: ProviderId): EffectiveP
 	assignIfDefined(merged, "contextWindow", providerSettings.contextWindow ?? stateConfig.contextWindow)
 	assignIfDefined(merged, "auth", stateConfig.auth ?? providerSettings.auth)
 	assignIfDefined(merged, "extras", mergeExtras(providerSettings.extras, stateConfig.extras))
+	// Local model file (e.g. the `local-gguf` provider's `.gguf` selection).
+	// providers.json is the only source: unlike Ollama's context window there
+	// is no legacy StateManager key to fall back to.
+	assignIfDefined(merged, "modelPath", providerSettings.modelPath)
 
 	return { providerId, ...merged }
 }

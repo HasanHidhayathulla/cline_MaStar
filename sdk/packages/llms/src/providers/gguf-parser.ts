@@ -27,6 +27,12 @@ export class GGUFParseError extends Error {
 export interface GGUFMetadata {
 	architecture: string;
 	modelType: string;
+	/** `general.name` verbatim ("" when the file omits it). */
+	name: string;
+	/** `general.description` verbatim ("" when the file omits it). */
+	description: string;
+	/** Best-effort multimodal signal — see {@link detectVisionEncoder}. */
+	hasVisionEncoder: boolean;
 	parameterCount: string;
 	contextLength: number;
 	embeddingLength: number;
@@ -245,6 +251,39 @@ export function quantizationFromFilename(filePath: string): string {
 	return match ? match[1].toUpperCase() : "unknown";
 }
 
+/**
+ * Task 123 (OPT) — filename stem used when the file carries no `general.name`.
+ * `C:\models\tiny-Q4_K_M.gguf` → `tiny-Q4_K_M`.
+ */
+export function filenameStem(filePath: string): string {
+	const base = filePath.split(/[\\/]/).pop() ?? filePath;
+	return base.replace(/\.gguf$/i, "");
+}
+
+/** Vision-capable architectures as they appear in `general.architecture`. */
+const VISION_ARCHITECTURE_PATTERN =
+	/llava|vision|mllama|internvl|minicpmv|pixtral|moondream|(?:qwen|gemma)\d*vl/i;
+
+/**
+ * Task 123 (OPT) — best-effort multimodal detection. llama.cpp attaches
+ * vision towers through `clip.*` keys (a projector or vision encoder) and
+ * vision-capable architectures name themselves (`llava`, `qwen2vl`, …). Both
+ * signals are cheap header reads; neither is authoritative, so callers treat
+ * a `false` result as "unknown" rather than "text-only".
+ */
+export function detectVisionEncoder(raw: Record<string, unknown>): boolean {
+	if (raw["clip.has_vision_encoder"] === true) {
+		return true;
+	}
+	if (raw["clip.has_vision_encoder"] === 1) {
+		return true;
+	}
+	if (typeof raw["clip.projector_type"] === "string") {
+		return true;
+	}
+	return VISION_ARCHITECTURE_PATTERN.test(asString(raw["general.architecture"]));
+}
+
 /** Task 61 — header buffer (+ optional path for filesize/quant fallback) → metadata. */
 export function parseGGUFMetadataFromBuffer(
 	buffer: Buffer,
@@ -270,6 +309,9 @@ export function parseGGUFMetadataFromBuffer(
 	return {
 		architecture,
 		modelType,
+		name: asString(raw["general.name"]),
+		description: asString(raw["general.description"]),
+		hasVisionEncoder: detectVisionEncoder(raw),
 		parameterCount,
 		contextLength,
 		embeddingLength,

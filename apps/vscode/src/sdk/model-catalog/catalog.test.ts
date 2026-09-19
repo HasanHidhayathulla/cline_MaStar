@@ -1,10 +1,14 @@
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import type { ModelInfo } from "@shared/api"
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import type {
 	EffectiveProviderConfig,
 	Fingerprint,
 	ProviderConfigChange,
 	ProviderConfigReader,
+	ProviderId,
 	ProviderModelsResult,
 	ResolvedModelSelection,
 } from "./contracts"
@@ -736,5 +740,211 @@ describe("ProviderCatalog Phase 3.6 subscribe", () => {
 		await catalog.resolveModels(providerId)
 
 		expect(listener).not.toHaveBeenCalled()
+	})
+})
+
+// ---------------------------------------------------------------------------
+// Local model files (Phase 6, tasks 115, 125–131)
+// ---------------------------------------------------------------------------
+
+/** Minimal valid GGUF header: magic + v3 + 0 tensors + N metadata entries. */
+function ggufFile(entries: Array<{ key: string; type: number; value: number[] }>): Buffer {
+	const bytes: number[] = [0x47, 0x47, 0x55, 0x46, 3, 0, 0, 0]
+	for (let i = 0; i < 8; i += 1) {
+		bytes.push(0) // tensor count = 0
+	}
+	ggufPushU64(bytes, entries.length) // metadata KV count
+	for (const entry of entries) {
+		ggufPushString(bytes, entry.key)
+		ggufPushU32(bytes, entry.type)
+		bytes.push(...entry.value)
+	}
+	return Buffer.from(bytes)
+}
+
+function ggufPushU64(bytes: number[], value: number): void {
+	bytes.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff, 0, 0, 0, 0)
+}
+
+function ggufPushU32(bytes: number[], value: number): void {
+	bytes.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff)
+}
+
+function ggufPushString(bytes: number[], value: string): void {
+	const encoded = Buffer.from(value, "utf8")
+	ggufPushU64(bytes, encoded.length)
+	bytes.push(...encoded)
+}
+
+function ggufStringValue(value: string): number[] {
+	const bytes: number[] = []
+	ggufPushString(bytes, value)
+	return bytes
+}
+
+function ggufU32Value(value: number): number[] {
+	const bytes: number[] = []
+	ggufPushU32(bytes, value)
+	return bytes
+}
+
+const GGUF_STRING_TYPE = 8
+const GGUF_UINT32_TYPE = 4
+/** Pinned mtime so the host + SDK caches are exercised deterministically. */
+const GGUF_FIXTURE_MTIME = new Date("2024-01-01T00:00:00Z")
+/** A real .gguf the user selected, as the settings UI would store it. */
+const LOCAL_GGUF_PROVIDER = "local-gguf"
+
+let ggufFixtureDir = ""
+
+function writeGGUFFixture(fileName: string, body: Buffer): string {
+	if (!ggufFixtureDir) {
+		ggufFixtureDir = mkdtempSync(join(tmpdir(), "cline-catalog-gguf-"))
+	}
+	const path = join(ggufFixtureDir, fileName)
+	writeFileSync(path, body)
+	utimesSync(path, GGUF_FIXTURE_MTIME, GGUF_FIXTURE_MTIME)
+	return path
+}
+
+function llamaModelFile(name: string, contextLength: number): Buffer {
+	return ggufFile([
+		{ key: "general.architecture", type: GGUF_STRING_TYPE, value: ggufStringValue("llama") },
+		{ key: "general.name", type: GGUF_STRING_TYPE, value: ggufStringValue(name) },
+		{ key: "llama.context_length", type: GGUF_UINT32_TYPE, value: ggufU32Value(contextLength) },
+	])
+}
+
+/** Narrow a successful resolve, failing loudly on an unexpected error result. */
+async function resolveRecordOrThrow(
+	catalog: {
+		resolveModels: (providerId: ProviderId, options?: { forceRefresh?: boolean }) => Promise<ProviderModelsResult>
+	},
+	providerId: ProviderId,
+	options?: { forceRefresh?: boolean },
+): Promise<Extract<ProviderModelsResult, { ok: true }>> {
+	const result = await catalog.resolveModels(providerId, options)
+	if (!result.ok) {
+		throw new Error(
+			"expected a resolved model list, got " +
+				result.error.kind +
+				(result.error.code ? `/${result.error.code}` : "") +
+				": " +
+				result.error.message,
+		)
+	}
+	return result
+}
+
+describe("ProviderCatalog local model files", () => {
+	afterAll(() => {
+		if (ggufFixtureDir) {
+			rmSync(ggufFixtureDir, { recursive: true, force: true })
+			ggufFixtureDir = ""
+		}
+	})
+
+	it("resolves the model list from the configured .gguf file (task 115)", async () => {
+		const { createProviderCatalog } = await import("./catalog")
+		const providerId = parseProviderId(LOCAL_GGUF_PROVIDER)
+		const modelPath = writeGGUFFixture("TinyTest-Q4_K_M.gguf", llamaModelFile("TinyTest", 8192))
+		const catalog = createProviderCatalog(makeReader({ providerId, modelPath, contextWindow: 4096 }))
+
+		const record = await resolveRecordOrThrow(catalog, providerId)
+
+		expect(record.source).toBe("host-adapter")
+		expect(record.defaultModelId).toBe("local-model")
+		expect([...record.models.keys()]).toEqual(["local-model"])
+		const info = record.models.get("local-model")
+		expect(info?.name).toBe("TinyTest")
+		// The file declares 8192; the configured window narrows it.
+		expect(info?.contextWindow).toBe(4096)
+		expect(info?.capabilities).toEqual(["tools"])
+		// The SDK catalog is not consulted for a file-backed provider.
+		expect(mocks.resolveProviderConfig).not.toHaveBeenCalled()
+	})
+
+	it("reports a missing model file as a config error, never a throw (tasks 125/130)", async () => {
+		const { createProviderCatalog } = await import("./catalog")
+		const providerId = parseProviderId(LOCAL_GGUF_PROVIDER)
+		const modelPath = join(tmpdir(), `cline-missing-${Date.now()}.gguf`)
+		const catalog = createProviderCatalog(makeReader({ providerId, modelPath }))
+
+		const result = await catalog.resolveModels(providerId)
+
+		expect(result.ok).toBe(false)
+		if (result.ok) {
+			throw new Error("expected a failed result for a missing model file")
+		}
+		expect(result.error).toMatchObject({ kind: "config", code: "ENOENT" })
+	})
+
+	it("reports a corrupted model file as a shape error (task 131)", async () => {
+		const { createProviderCatalog } = await import("./catalog")
+		const providerId = parseProviderId(LOCAL_GGUF_PROVIDER)
+		const modelPath = writeGGUFFixture("corrupted.gguf", Buffer.from("not a gguf file at all"))
+		const catalog = createProviderCatalog(makeReader({ providerId, modelPath }))
+
+		const result = await catalog.resolveModels(providerId)
+
+		expect(result.ok).toBe(false)
+		if (result.ok) {
+			throw new Error("expected a failed result for a corrupted model file")
+		}
+		expect(result.error).toMatchObject({ kind: "shape", code: "NOT_GGUF" })
+	})
+
+	it("honours forceRefresh by re-reading the file (task 126)", async () => {
+		const { createProviderCatalog } = await import("./catalog")
+		const providerId = parseProviderId(LOCAL_GGUF_PROVIDER)
+		const modelPath = writeGGUFFixture("Refreshable.gguf", llamaModelFile("alpha", 4096))
+		const catalog = createProviderCatalog(makeReader({ providerId, modelPath }))
+
+		const first = await resolveRecordOrThrow(catalog, providerId)
+		expect(first.models.get("local-model")?.name).toBe("alpha")
+
+		// Rewrite with the original mtime restored: only forceRefresh sees it.
+		writeFileSync(modelPath, llamaModelFile("bravo", 4096))
+		utimesSync(modelPath, GGUF_FIXTURE_MTIME, GGUF_FIXTURE_MTIME)
+
+		const cached = await resolveRecordOrThrow(catalog, providerId)
+		expect(cached.models.get("local-model")?.name).toBe("alpha")
+
+		const refreshed = await resolveRecordOrThrow(catalog, providerId, { forceRefresh: true })
+		expect(refreshed.models.get("local-model")?.name).toBe("bravo")
+	})
+
+	it("keeps providers with a declared model source URL on the SDK path", async () => {
+		const { createProviderCatalog } = await import("./catalog")
+		// Ollama declares its own models source URL, so a stray modelPath must
+		// not divert it away from its live model list.
+		const providerId = parseProviderId("ollama")
+		mocks.resolveProviderConfig.mockResolvedValue({
+			modelId: "llama3:latest",
+			knownModels: { "llama3:latest": { id: "llama3:latest" } },
+		})
+		const catalog = createProviderCatalog(
+			makeReader({ providerId, modelPath: "/tmp/stray.gguf", baseUrl: "http://localhost:11434/v1" }),
+		)
+
+		const record = await resolveRecordOrThrow(catalog, providerId)
+
+		expect(record.models.has("llama3:latest")).toBe(true)
+		expect(mocks.resolveProviderConfig).toHaveBeenCalledTimes(1)
+	})
+
+	it("keeps providers without a model file on the SDK path", async () => {
+		const { createProviderCatalog } = await import("./catalog")
+		const providerId = parseProviderId("deepseek")
+		mocks.resolveProviderConfig.mockResolvedValue({
+			modelId: "deepseek-chat",
+			knownModels: { "deepseek-chat": { id: "deepseek-chat" } },
+		})
+		const catalog = createProviderCatalog(makeReader({ providerId, apiKey: "key" }))
+
+		const record = await resolveRecordOrThrow(catalog, providerId)
+
+		expect(record.models.has("deepseek-chat")).toBe(true)
+		expect(record.source).toBe("sdk-dynamic")
 	})
 })

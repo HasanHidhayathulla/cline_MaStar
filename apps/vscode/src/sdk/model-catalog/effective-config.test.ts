@@ -212,4 +212,23 @@ describe("buildEffectiveProviderConfig", () => {
 			auth: { accessToken: "cline-access-token", accountId: "account-123" },
 		})
 	})
+
+	it("surfaces the selected local model file from providers.json", async () => {
+		const { buildEffectiveProviderConfig } = await import("./effective-config")
+		mocks.setProviderSettings({
+			"local-gguf": {
+				provider: "local-gguf",
+				modelPath: "C:/models/tiny-Q4_K_M.gguf",
+				contextWindow: 4096,
+			},
+		})
+
+		// `modelPath` is the shape-based signal the model catalog uses to
+		// resolve this provider's model list from the file itself.
+		expect(buildEffectiveProviderConfig(parseProviderId("local-gguf"))).toEqual({
+			providerId: parseProviderId("local-gguf"),
+			contextWindow: 4096,
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+		})
+	})
 })

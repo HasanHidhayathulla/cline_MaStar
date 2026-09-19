@@ -45,6 +45,17 @@ describe("computeConfigFingerprint", () => {
 		)
 	})
 
+	it("changes when the local model file path changes", () => {
+		// The selected file determines the resolved model list, so a different
+		// file must not reuse a fingerprint-keyed cache entry.
+		expect(computeConfigFingerprint(providerId, makeConfig({ modelPath: "/models/a.gguf" }))).not.toBe(
+			computeConfigFingerprint(providerId, makeConfig({ modelPath: "/models/b.gguf" })),
+		)
+		expect(computeConfigFingerprint(providerId, makeConfig({ modelPath: "/models/a.gguf" }))).toBe(
+			computeConfigFingerprint(providerId, makeConfig({ modelPath: "/models/a.gguf" })),
+		)
+	})
+
 	it("changes when the apiKey changes", () => {
 		expect(computeConfigFingerprint(providerId, makeConfig({ apiKey: "api-key-a" }))).not.toBe(
 			computeConfigFingerprint(providerId, makeConfig({ apiKey: "api-key-b" })),

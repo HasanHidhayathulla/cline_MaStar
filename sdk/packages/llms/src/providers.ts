@@ -64,6 +64,34 @@ export {
 	registerAsyncHandler,
 	registerHandler,
 } from "./providers/factory-registry";
+// Local GGUF surface (Phases 4–6): the parser feeds settings/metadata RPCs,
+// `resolveLocalGGUFModels` feeds the model catalog, and the inference bridge
+// backs model load/status handlers. Node-only — never re-exported from the
+// browser entry, which has no filesystem or child-process access.
+export {
+	type GGUFInferenceConfig,
+	GGUFInferenceError,
+	GGUFInferenceHandler,
+	type LlamaServerProbe,
+	detectLlamaServer,
+	findFreePort,
+	getRunningServer,
+} from "./providers/gguf-inference";
+export {
+	type GGUFMetadata,
+	type GGUFParseErrorCode,
+	GGUFParseError,
+	parseGGUFMetadataFromBuffer,
+	parseGGUFMetadataFromFile,
+} from "./providers/gguf-parser";
+export {
+	clearLocalGGUFModelCache,
+	DEFAULT_LOCAL_GGUF_CONTEXT_WINDOW,
+	DEFAULT_LOCAL_GGUF_MAX_TOKENS,
+	LOCAL_GGUF_MODEL_ID,
+	type LocalGGUFModelResolveOptions,
+	resolveLocalGGUFModels,
+} from "./providers/gguf-models";
 export type {
 	ApiStreamChunk,
 	ContentBlock,

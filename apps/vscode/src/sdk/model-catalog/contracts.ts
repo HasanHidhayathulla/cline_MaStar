@@ -119,6 +119,15 @@ export interface EffectiveProviderConfig {
 	 * migration.
 	 */
 	readonly extras?: Readonly<Record<string, unknown>>
+	/**
+	 * Local model file selected by the user for providers that run a `.gguf`
+	 * file in-process (e.g. the `local-gguf` provider). Host-side only — not a
+	 * generic field every provider populates — and it is never written to
+	 * secrets storage. Its presence is the shape-based signal the model catalog
+	 * uses to resolve that provider's model list from the file rather than a
+	 * remote catalog; see `local-model-file.ts`.
+	 */
+	readonly modelPath?: string
 }
 
 /**
