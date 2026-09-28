@@ -1177,3 +1177,114 @@ describe("createProviderConfigStore", () => {
 		expect(() => StoredModelEntrySchema.parse(entry)).not.toThrow()
 	})
 })
+
+/**
+ * Phase 9 — provider config store for file-run local models (tasks 193–196).
+ *
+ * `local-gguf` is the first provider whose persisted config is not just
+ * credentials: the selected `.gguf` file plus its inference knobs live in
+ * providers.json and drive both the model catalog (the model list *is* the
+ * file) and the `llama-server` session the load handler starts.
+ */
+describe("local-gguf provider config store", () => {
+	beforeEach(() => {
+		mocks.reset()
+		vi.resetModules()
+	})
+
+	it("round-trips the model path and its inference knobs through providers.json (task 193)", async () => {
+		const { createProviderConfigStore } = await import("./store")
+		const store = createProviderConfigStore()
+		const providerId = parseProviderId("local-gguf")
+
+		const written = store.write(providerId, {
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 12,
+			contextWindow: 4096,
+		})
+
+		expect(written).toEqual({
+			providerId,
+			contextWindow: 4096,
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 12,
+		})
+		// providers.json is the only backing store: there is no legacy
+		// StateManager key for a local model file or its tuning knobs.
+		expect(mocks.getSavedProviderSettings("local-gguf")).toEqual({
+			provider: "local-gguf",
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 12,
+			contextWindow: 4096,
+		})
+		expect(store.read(providerId)).toEqual(written)
+
+		// A fresh store sees the same config, so this is a disk round-trip and
+		// not only in-memory state.
+		expect(createProviderConfigStore().read(providerId)).toEqual(written)
+	})
+
+	it("clears the selection when the model path is emptied (task 194)", async () => {
+		const { createProviderConfigStore } = await import("./store")
+		mocks.setProviderSettings({
+			"local-gguf": { provider: "local-gguf", modelPath: "C:/models/tiny.gguf", threads: 8 },
+		})
+		const store = createProviderConfigStore()
+		const providerId = parseProviderId("local-gguf")
+
+		store.write(providerId, { modelPath: "" })
+
+		// The knobs survive; only the file reference is dropped, which is what
+		// makes the provider unloadable (`loadGGUFModel` rejects a blank path
+		// with ENOENT before any process work).
+		expect(mocks.getSavedProviderSettings("local-gguf")).toEqual({ provider: "local-gguf", threads: 8 })
+		expect(store.read(providerId).modelPath).toBeUndefined()
+		expect(store.read(providerId).threads).toBe(8)
+	})
+
+	it("rejects nonsensical knobs instead of persisting them (task 193)", async () => {
+		const { createProviderConfigStore } = await import("./store")
+		mocks.setProviderSettings({
+			"local-gguf": { provider: "local-gguf", modelPath: "C:/models/tiny.gguf", threads: 8, gpuLayers: 4 },
+		})
+		const store = createProviderConfigStore()
+		const providerId = parseProviderId("local-gguf")
+
+		// threads 0/negative is nonsense (the provider's declared default is the
+		// sane answer); gpuLayers 0 is a real value meaning "CPU only".
+		store.write(providerId, { threads: 0, gpuLayers: 0 })
+
+		expect(mocks.getSavedProviderSettings("local-gguf")).toEqual({
+			provider: "local-gguf",
+			modelPath: "C:/models/tiny.gguf",
+			gpuLayers: 0,
+		})
+		expect(store.read(providerId).threads).toBeUndefined()
+		expect(store.read(providerId).gpuLayers).toBe(0)
+	})
+
+	it("keeps a committed local model id per mode and mirrors it to providers.json (task 196)", async () => {
+		const { createProviderConfigStore } = await import("./store")
+		mocks.setApiConfiguration({ planActSeparateModelsSetting: true })
+		const store = createProviderConfigStore()
+		const providerId = parseProviderId("local-gguf")
+
+		store.commitSelection(providerId, "act", { providerId, modelId: "local-model" })
+
+		// The selection survives a mode toggle: it is re-read from
+		// providers.json, which is the durable half of the commit.
+		expect(store.readSelection(providerId, "act")).toMatchObject({ providerId, modelId: "local-model" })
+		expect(mocks.getSavedProviderSettings("local-gguf")).toMatchObject({
+			provider: "local-gguf",
+			model: "local-model",
+		})
+
+		store.commitSelection(providerId, "plan", { providerId, modelId: "local-model" })
+
+		expect(store.readSelection(providerId, "plan")).toMatchObject({ providerId, modelId: "local-model" })
+		expect(store.readSelection(providerId, "act")).toMatchObject({ providerId, modelId: "local-model" })
+	})
+})

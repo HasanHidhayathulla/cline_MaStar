@@ -242,6 +242,10 @@ export function toRedactedProviderConfigResponse(
 		aws: toRedactedAwsProviderConfigProto(config.aws),
 		gcp: toRedactedGcpProviderConfigProto(config.gcp),
 		contextWindow: config.contextWindow,
+		// Local-model config (file-run providers such as `local-gguf`).
+		modelPath: config.modelPath,
+		threads: config.threads,
+		gpuLayers: config.gpuLayers,
 	})
 }
 
@@ -265,6 +269,13 @@ export function toProviderConfigPatch(protoPatch: WriteProviderConfigPatch | und
 		...(protoPatch.contextWindow !== undefined
 			? { contextWindow: protoPatch.contextWindow > 0 ? protoPatch.contextWindow : null }
 			: {}),
+		// Local-model config (file-run providers such as `local-gguf`): an empty
+		// model path clears the selection, `threads <= 0` falls back to the
+		// provider default, and `gpuLayers` keeps `0` (CPU only) — only negative
+		// values clear it.
+		...(protoPatch.modelPath !== undefined ? { modelPath: protoPatch.modelPath } : {}),
+		...(protoPatch.threads !== undefined ? { threads: protoPatch.threads > 0 ? protoPatch.threads : null } : {}),
+		...(protoPatch.gpuLayers !== undefined ? { gpuLayers: protoPatch.gpuLayers >= 0 ? protoPatch.gpuLayers : null } : {}),
 		...(protoPatch.accessToken !== undefined || protoPatch.refreshToken !== undefined || protoPatch.accountId !== undefined
 			? {
 					auth: {

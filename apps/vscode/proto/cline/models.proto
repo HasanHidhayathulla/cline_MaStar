@@ -65,6 +65,14 @@ service ModelsService {
   rpc writeProviderConfig(WriteProviderConfigRequest) returns (ProviderConfigResponse);
   // Commits a mode-specific model ID with optional user-authored metadata overrides
   rpc commitModelSelection(CommitModelSelectionRequest) returns (Empty);
+  // Reads the GGUF header metadata for a model file without loading it
+  rpc getGGUFMetadata(StringRequest) returns (GGUFMetadataResponse);
+  // Loads a .gguf model file into a local llama-server inference process
+  rpc loadGGUFModel(LoadGGUFModelRequest) returns (LoadGGUFModelResponse);
+  // Unloads the running llama-server for a model path (idempotent)
+  rpc unloadGGUFModel(StringRequest) returns (Empty);
+  // Reports the live status of the loaded GGUF model
+  rpc getGGUFModelStatus(StringRequest) returns (GGUFModelStatus);
 }
 
 // List of VS Code LM models
@@ -256,6 +264,13 @@ message ProviderConfigResponse {
   // Provider-level context window (providers.json `contextWindow`). Used by
   // bring-your-own-model providers (e.g. Ollama, where it maps to num_ctx).
   optional int32 context_window = 14;
+  // Local model file backing a file-run provider (e.g. `local-gguf`).
+  // Host-side only: never written to secrets storage.
+  optional string model_path = 15;
+  // CPU threads for local inference (`llama-server --threads`).
+  optional int32 threads = 16;
+  // Layers offloaded to GPU (`llama-server --n-gpu-layers`); 0 = CPU only.
+  optional int32 gpu_layers = 17;
 }
 
 message CommittedModelSelection {
@@ -286,6 +301,12 @@ message WriteProviderConfigPatch {
   optional GcpProviderConfig gcp = 12;
   // Provider-level context window; 0 clears the setting.
   optional int32 context_window = 13;
+  // Local model file for file-run providers; empty string clears the setting.
+  optional string model_path = 14;
+  // CPU threads for local inference; values <= 0 clear the setting.
+  optional int32 threads = 15;
+  // GPU layers to offload (0 = CPU only); negative values clear the setting.
+  optional int32 gpu_layers = 16;
 }
 
 message WriteProviderConfigRequest {
@@ -848,4 +869,68 @@ message ModelsApiConfiguration {
   optional OpenRouterModelInfo act_mode_cline_model_info = 241;
   optional string act_mode_cline_pass_model_id = 242;
   optional OpenRouterModelInfo act_mode_cline_pass_model_info = 243;
+}
+
+// Local GGUF model management (Phases 7–8).
+//
+// A `.gguf` file is run directly by a local `llama-server` (llama.cpp). These
+// messages drive the extension host handlers that parse a file's header
+// metadata, load/unload the inference process, and report its live status.
+
+// Metadata read from a GGUF file header without loading the model.
+message GGUFMetadataResponse {
+  // `general.architecture`, e.g. "llama"/"qwen2"
+  string architecture = 1;
+  // Model type/name; falls back to `general.name`/`general.type`
+  string model_type = 2;
+  // Human parameter count, e.g. "7B" (from `general.size_label` when present)
+  string parameter_count = 3;
+  // `*.context_length` (tokens); 0 when the header does not declare one
+  int64 context_length = 4;
+  // `*.embedding_length`; 0 when absent or not an embedding model
+  int64 embedding_length = 5;
+  // Size of the file on disk in bytes
+  int64 file_size = 6;
+  // Quantization, e.g. "Q4_K_M" (metadata or filename-inferred)
+  string quantization = 7;
+  // `general.name`, empty when the file omits it
+  string model_name = 8;
+  // `general.description`, empty when the file omits it
+  string description = 9;
+}
+
+// Request to load a `.gguf` model into a local llama-server process.
+message LoadGGUFModelRequest {
+  // Absolute path to the .gguf model file
+  string model_path = 1;
+  // Number of CPU threads for inference
+  int32 threads = 2;
+  // Context window in tokens (`-c`)
+  int32 context_window = 3;
+  // GPU layers to offload (`-ngl`); 0 = CPU only
+  int32 gpu_layers = 4;
+  // Extra llama-server CLI arguments appended verbatim
+  repeated string extra_args = 5;
+}
+
+// Result of a model load/unload attempt.
+message LoadGGUFModelResponse {
+  bool success = 1;
+  // Stable model id ("local-model")
+  string model_id = 2;
+  // Error message when `success` is false
+  string error = 3;
+  // llama-server version banner, when detected
+  string server_version = 4;
+}
+
+// Live status of the loaded local GGUF model, if any.
+message GGUFModelStatus {
+  bool loaded = 1;
+  // Absolute path of the currently loaded model file
+  string model_path = 2;
+  optional int64 pid = 3;
+  optional int32 port = 4;
+  optional int64 memory_bytes = 5;
+  optional int64 uptime_seconds = 6;
 }

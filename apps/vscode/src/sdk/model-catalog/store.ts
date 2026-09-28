@@ -631,6 +631,39 @@ function writeProviderSettingsFields(providerId: ProviderId, patch: ProviderConf
 		}
 	}
 
+	// Local model file and its tuning knobs (file-run providers such as
+	// `local-gguf`). providers.json is the only backing store for these: unlike
+	// Ollama's context window there is no legacy StateManager key to mirror to.
+	if ("modelPath" in patch) {
+		const modelPath = patchStringValue(patch.modelPath)
+		if (modelPath === undefined) {
+			delete next.modelPath
+		} else {
+			next.modelPath = modelPath
+		}
+	}
+
+	if ("threads" in patch) {
+		// `0`/negatives are rejected rather than stored so the provider's
+		// declared default applies instead of a nonsensical thread count.
+		const threads = positiveFiniteNumber(patch.threads)
+		if (threads === undefined) {
+			delete next.threads
+		} else {
+			next.threads = Math.floor(threads)
+		}
+	}
+
+	if ("gpuLayers" in patch) {
+		// `0` is meaningful here (CPU only) and is kept; only negatives clear.
+		const gpuLayers = nonNegativeFiniteNumber(patch.gpuLayers)
+		if (gpuLayers === undefined) {
+			delete next.gpuLayers
+		} else {
+			next.gpuLayers = Math.floor(gpuLayers)
+		}
+	}
+
 	if ("aws" in patch) {
 		const awsPatch = patch.aws
 		if (awsPatch === null || awsPatch === undefined) {

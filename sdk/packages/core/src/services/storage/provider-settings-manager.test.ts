@@ -58,6 +58,41 @@ describe("ProviderSettingsManager", () => {
 		expect(reloaded.read().providers.anthropic?.tokenSource).toBe("manual");
 	});
 
+	it("round-trips local model file settings", () => {
+		const tempDir = mkdtempSync(
+			path.join(os.tmpdir(), "core-provider-settings-"),
+		);
+		tempDirs.push(tempDir);
+		const filePath = path.join(tempDir, "provider-settings.json");
+		const manager = new ProviderSettingsManager({ filePath });
+
+		// `gpuLayers: 0` means "CPU only" and must be preserved as a real value.
+		manager.saveProviderSettings(
+			{
+				provider: "local-gguf",
+				modelPath: "/models/tinyllama-Q4_K_M.gguf",
+				threads: 8,
+				gpuLayers: 0,
+			},
+			{ setLastUsed: true },
+		);
+
+		const reloaded = new ProviderSettingsManager({ filePath });
+		expect(reloaded.getProviderSettings("local-gguf")).toMatchObject({
+			provider: "local-gguf",
+			modelPath: "/models/tinyllama-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
+		});
+		// The runtime config the handler factory receives carries them through.
+		expect(reloaded.getProviderConfig("local-gguf")).toMatchObject({
+			providerId: "local-gguf",
+			modelPath: "/models/tinyllama-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
+		});
+	});
+
 	it("persists voice input selection independently of the chat provider", () => {
 		const tempDir = mkdtempSync(
 			path.join(os.tmpdir(), "core-provider-settings-"),

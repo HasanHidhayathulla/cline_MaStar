@@ -60,6 +60,9 @@ const KNOWN_API_PROVIDERS = {
 	"tencent-tokenhub": true,
 	chutes: true,
 	"cline-pass": true,
+	// Local file-run provider (llama.cpp `llama-server`). No remote catalog and
+	// no API key: the model list comes from the selected `.gguf` file itself.
+	"local-gguf": true,
 } satisfies Record<ApiProvider, true>
 
 /**

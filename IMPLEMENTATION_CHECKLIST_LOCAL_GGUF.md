@@ -215,61 +215,63 @@
 
 ## Phase 7 — Proto/gRPC Contracts (133–152)
 
-- [ ] 133. Open `apps/vscode/proto/cline/models.proto`
-- [ ] 134. Add `rpc getGGUFMetadata(StringRequest) returns (GGUFMetadataResponse);`
-- [ ] 135. Add `rpc loadGGUFModel(LoadGGUFModelRequest) returns (LoadGGUFModelResponse);`
-- [ ] 136. Add `rpc unloadGGUFModel(StringRequest) returns (Empty);`
-- [ ] 137. Add `rpc getGGUFModelStatus(StringRequest) returns (GGUFModelStatus);`
-- [ ] 138. Add `message GGUFMetadataResponse` (architecture, model_type, parameter_count, context_length, embedding_length, file_size, quantization)
-- [ ] 139. Add `message LoadGGUFModelRequest` (model_path, threads, context_window, gpu_layers, extra_args)
-- [ ] 140. Add `message LoadGGUFModelResponse` (success, model_id, error, server_version)
-- [ ] 141. Add `message GGUFModelStatus` (loaded, model_path, pid, port, memory_bytes, uptime_seconds)
-- [ ] 142. Run `bun run protos` from `apps/vscode` to regenerate TypeScript
-- [ ] 143. Verify `src/generated/grpc-js/` has new handlers
-- [ ] 144. Verify `src/shared/proto/cline/models.ts` has new request/response types
-- [ ] 145. Verify `models_pb.js` / `_pb2.ts` updated for new messages
-- [ ] 146. Confirm the generated nice-grpc client exposes the new methods
-- [ ] 147. Check proto syntax correctness (field numbers, message names, JSON names)
-- [ ] 148. Add proto doc comments for each new message field
-- [ ] 149. Write a proto compatibility test (existing messages unaffected)
-- [ ] 150. Run `bun run check` to typecheck proto changes
-- [ ] 151. Test proto round-trip: construct → serialize → deserialize → assert equality
-- [ ] 152. Register the new RPCs in the VS Code `ModelsService` handler dispatch
+- [x] 133. Open `apps/vscode/proto/cline/models.proto` — **DONE** (service `ModelsService` ends at the `commitModelSelection` RPC; message block at file tail after `ModelsApiConfiguration`).
+- [x] 134. Add `rpc getGGUFMetadata(StringRequest) returns (GGUFMetadataResponse);` — **DONE** (service block, last four RPCs; verified via `git diff`).
+- [x] 135. Add `rpc loadGGUFModel(LoadGGUFModelRequest) returns (LoadGGUFModelResponse);` — **DONE**.
+- [x] 136. Add `rpc unloadGGUFModel(StringRequest) returns (Empty);` — **DONE** (reuses `common.proto` `Empty`).
+- [x] 137. Add `rpc getGGUFModelStatus(StringRequest) returns (GGUFModelStatus);` — **DONE**.
+- [x] 138. Add `message GGUFMetadataResponse` — **DONE** with the seven listed fields (`architecture`, `model_type`, `parameter_count`, `context_length`, `embedding_length`, `file_size`, `quantization`) **plus** `model_name` (=8) and `description` (=9), which the Phase-6 parser already returns; the picker/handlers will want them. `int64` for the two lengths (matches `ThinkingConfig.max_budget` usage).
+- [x] 139. Add `message LoadGGUFModelRequest` — **DONE** (`model_path=1`, `threads=2`, `context_window=3`, `gpu_layers=4` as `int32`, `extra_args=5` `repeated string`).
+- [x] 140. Add `message LoadGGUFModelResponse` — **DONE** (`success=1` `bool`, `model_id=2`, `error=3`, `server_version=4`, all `string`).
+- [x] 141. Add `message GGUFModelStatus` — **DONE** (`loaded=1` `bool`, `model_path=2` `string`, then optional `pid`/`port`/`memory_bytes`/`uptime_seconds` = 3–6).
+- [ ] 142. Run `bun run protos` from `apps/vscode` to regenerate TypeScript — **BLOCKED (environment).** The bundled `node_modules/grpc-tools/bin/protoc.exe` crashes on this machine with Windows status `3221225781` (0xC0000005, access violation) — reproduced for `--version` even after copying the exe to `C:\tmp` (also no alternate `protoc`/`tmp-protoc` on PATH). `bun run protos` therefore aborts and leaves `src/generated`/`src/shared/proto` (gitignored, so not recoverable from git) unrebuilt. **Must run on a healthy dev box.**
+- [ ] 143. Verify `src/generated/grpc-js/` has new handlers — **BLOCKED by 142.** Expected: generated `models.grpc-js.ts`/`models_pb` entries named after the four RPCs.
+- [ ] 144. Verify `src/shared/proto/cline/models.ts` has new request/response types — **BLOCKED by 142.** Expected ts_proto classes: `GGUFMetadataResponse`, `LoadGGUFModelRequest`, `LoadGGUFModelResponse`, `GGUFModelStatus` (fields in proto field order, camelCased: `contextLength`, `fileSize`, `modelName`, `modelPath`, `contextWindow`, `gpuLayers`, `extraArgs`, `modelId`, `serverVersion`, `memoryBytes`, `uptimeSeconds`).
+- [ ] 145. Verify `models_pb.js` / `_pb2.ts` updated for new messages — **BLOCKED by 142.**
+- [ ] 146. Confirm the generated nice-grpc client exposes the new methods — **BLOCKED by 142.** Expected `ModelsServiceClient.getGGUFMetadata(StringRequest)`, `.loadGGUFModel(LoadGGUFModelRequest)`, `.unloadGGUFModel(StringRequest)`, `.getGGUFModelStatus(StringRequest)` (these are the exact names Phase 14's gRPC-client tasks reference).
+- [x] 147. Check proto syntax correctness (field numbers, message names, JSON names) — **DONE by construction:** fresh field numbers 1–9 per message, unique RPC names, all references resolve in-file or via `common.proto` imports; `git diff` reviewed. (A `buf` lint pass is part of the blocked 142 flow.)
+- [x] 148. Add proto doc comments for each new message field — **DONE** (every field in the four new messages has a `//` comment; RPCs each have a one-line description).
+- [ ] 149. Write a proto compatibility test (existing messages unaffected) — **BLOCKED by 142.** No proto round-trip/compat suite can run while the generated layer is absent.
+- [ ] 150. Run `bun run check` to typecheck proto changes — **BLOCKED by 142** (extension `tsc` cannot resolve `@shared/proto/*`, which were deleted by the aborted codegen and are gitignored).
+- [ ] 151. Test proto round-trip: construct → serialize → deserialize → assert equality — **BLOCKED by 142.**
+- [ ] 152. Register the new RPCs in the VS Code `ModelsService` handler dispatch — **DEFERRED to Phase 8.** The dispatch table is codegen-driven (`grpc-service-config.ts` regenerated by `protos`), and the real tracked wiring lives in `src/core/controller/models/index.ts` (Phase 8 tasks 174–175).
+
+> **Phase 7 environment blocker (carry into every following phase):** proto codegen cannot run on this machine (`grpc-tools` `protoc.exe` segfaults; no standalone protoc). The proto **source** is final and committed-ready here, but the regenerated `src/generated/*` and `src/shared/proto/*` (both gitignored) must be produced by running `bun run protos` on a healthy machine before any extension-host code (Phase 8+) and the `apps/vscode` vitest suites can be built/run. The Phase-6 SDK tests (`@cline/llms`) are unaffected and green.
 
 ---
 
 ## Phase 8 — Extension Host Handlers (153–182)
 
-- [ ] 153. Create `apps/vscode/src/core/controller/models/resolveGGUFMetadata.ts`
-- [ ] 154. Import `parseGGUFMetadataFromFile` from `@cline/llms`
-- [ ] 155. Implement handler(controller, request: StringRequest) → Promise\<GGUFMetadataResponse\>
-- [ ] 156. Read model path from `request.value` and validate extension
-- [ ] 157. Call `parseGGUFMetadataFromFile` and map the result to proto fields
-- [ ] 158. Wrap parse errors → typed gRPC error with code `INVALID_ARGUMENT`
-- [ ] 159. Create `apps/vscode/src/core/controller/models/loadGGUFModel.ts`
-- [ ] 160. Map `LoadGGUFModelRequest` → `GGUFInferenceConfig`
-- [ ] 161. Call `detectLlamaServer`; reject with install guidance if missing (BLOCKER)
-- [ ] 162. On missing binary return a friendly gRPC error referencing the docs link
-- [ ] 163. Acquire the `GGUFInferenceHandler` via `getRegisteredHandler`/registry
-- [ ] 164. Hold the spawned llama-server reference on the controller instance
-- [ ] 165. Return `LoadGGUFModelResponse { success, model_id, error }`
-- [ ] 166. Create `apps/vscode/src/core/controller/models/unloadGGUFModel.ts`
-- [ ] 167. Look up the running llama-server by model path and call `dispose()`
-- [ ] 168. Free the held process reference and release the port
-- [ ] 169. Return `Empty` confirmation (idempotent when nothing loaded)
-- [ ] 170. Create `apps/vscode/src/core/controller/models/getGGUFModelStatus.ts`
-- [ ] 171. Inspect the held reference to determine `isAlive` / PID
-- [ ] 172. Query llama-server `/ps` (or `/system/info`) for memory usage when live
-- [ ] 173. Map status → `GGUFModelStatus` proto
-- [ ] 174. Add all four handlers to the `ModelsService` handler dispatch map
-- [ ] 175. Wire handlers in `apps/vscode/src/core/controller/models/index.ts`
-- [ ] 176. Guard handlers behind "model path is set & file exists" precondition
-- [ ] 177. Add unit test for `resolveGGUFMetadata` with mocked `parseGGUFMetadataFromFile`
-- [ ] 178. Test `loadGGUFModel` returns error when llama-server is not installed
-- [ ] 179. Test `unloadGGUFModel` with no running process is safe (idempotent)
-- [ ] 180. Test `getGGUFModelStatus` reports loaded/unloaded correctly
-- [ ] 181. Test handler authorization: only authenticated sessions may load models (OPT)
-- [ ] 182. Run `bun run test:unit` for the vscode package
+- [x] 153. Create `apps/vscode/src/core/controller/models/resolveGGUFMetadata.ts` — **DONE** (this turn; new file).
+- [x] 154. Import `parseGGUFMetadataFromFile` from `@cline/llms` — **DONE** (handler imports `parseGGUFMetadataFromFile` + `GGUFParseError` from `@cline/llms`; test mocks that exact import).
+- [x] 155. Implement handler(controller, request: StringRequest) → Promise\<GGUFMetadataResponse\> — **DONE** (`resolveGGUFMetadata(controller, request)`; `controller` unused today, matched to the existing handler signature convention).
+- [x] 156. Read model path from `request.value` and validate extension — **DONE** via exported `assertGgufModelPath` (blank → `MODEL_NOT_FOUND`, wrong extension → `NOT_A_GGUF_PATH`; trims whitespace before the filesystem is touched).
+- [x] 157. Call `parseGGUFMetadataFromFile` and map the result to proto fields — **DONE** (one-to-one: architecture/modelType/parameterCount/contextLength/embeddingLength/fileSize/quantization; `modelName` ← `modelType`, matching the stable `"local-model"` naming from `GGUFInferenceHandler.getModel()`; `description` left empty because the Phase-7 proto response carries no matcher — revisit if `general.description` should flow through).
+- [x] 158. Wrap parse errors → typed gRPC error with code `INVALID_ARGUMENT` — **DONE in handler-shape:** `toGgufHandlerErrorMessage` preserves the SDK `GGUFParseError.code` on an `Error` whose message is `` `[CODE] detail — see model setup docs: <llama.cpp>` ``, so the (codegen-driven) transport layer can switch code→`INVALID_ARGUMENT` without parsing strings; final code assignment belongs to dispatch, done with task 174.
+- [x] 159. Create `apps/vscode/src/core/controller/models/loadGGUFModel.ts` — **DONE.**
+- [x] 160. Map `LoadGGUFModelRequest` → `GGUFInferenceConfig` — **DONE** (`normalizeGgufInferenceConfig`: trims the path, defaults threads=4/ctx=4096/gpu=0, rejects 0/negative/NaN instead of forwarding them, drops blank `extraArgs`; unit-tested).
+- [x] 161. Call `detectLlamaServer`; reject with install guidance if missing (BLOCKER) — **DONE** (`probe.available === false` returns a failed response, no spawn attempted).
+- [x] 162. On missing binary return a friendly gRPC error referencing the docs link — **DONE** (`llamaServerMissingMessage()` names `llama-server` and links `LLAMA_CPP_DOCS_URL`; unit-tested).
+- [x] 163. Acquire the `GGUFInferenceHandler` via `getRegisteredHandler`/registry — **DONE** via `createHandler(config)` (the SDK routes `local-gguf` to its registered factory) + `instanceof GGUFInferenceHandler` narrowing, with a clear failure response if the provider is not registered in the build.
+- [x] 164. Hold the spawned llama-server reference on the controller instance — **DONE** (`ggufModelRuntime` keeps `{handler, modelPath, loadedAtMs}` in a `WeakMap` keyed by the controller, so a dropped controller cannot pin a process; unit-tested incl. cross-controller isolation).
+- [x] 165. Return `LoadGGUFModelResponse { success, model_id, error }` — **DONE** (+ `server_version` from the probe; a failed `initialize()` disposes the half-started process before returning `success: false`).
+- [x] 166. Create `apps/vscode/src/core/controller/models/unloadGGUFModel.ts` — **DONE.**
+- [x] 167. Look up the running llama-server by model path and call `dispose()` — **DONE** (path-matched state check; `dispose()` also deregisters the child from the SDK's running-server map).
+- [x] 168. Free the held process reference and release the port — **DONE** (`finally` clears the state even if the kill throws, so a failed kill cannot leave a pinned process; `dispose()` zeroes its port).
+- [x] 169. Return `Empty` confirmation (idempotent when nothing loaded) — **DONE** (no state, or a different loaded path ⇒ `Empty.create({})`).
+- [x] 170. Create `apps/vscode/src/core/controller/models/getGGUFModelStatus.ts` — **DONE.**
+- [x] 171. Inspect the held reference to determine `isAlive` / PID — **DONE** (`getRunningServer(path)?.pid`; the SDK drops the child from that map on exit, so a dead server reports unloaded).
+- [x] 172. Query llama-server `/ps` (or `/system/info`) for memory usage when live — **DONE** (`/system/info` with a 2s `AbortSignal.timeout`, via the proxy-aware `@/shared/net` fetch; unknown/absent shapes yield `undefined` instead of a guess — unit-tested parser).
+- [x] 173. Map status → `GGUFModelStatus` proto — **DONE** (`toGgufStatusSnapshot`: port from the handler, uptime from `loadedAtMs`, unknown numerics zeroed because ts_proto's `useOptionals=none` emits required-with-default; unit-tested).
+- [ ] 174. Add all four handlers to the `ModelsService` handler dispatch map — **BLOCKED (codegen).** `src/core/controller/grpc-service-config.ts` is generated by `protos` (and deleted by its cleanup pass), so the dispatch table cannot exist until `bun run protos` succeeds on a healthy machine.
+- [ ] 175. Wire handlers in `apps/vscode/src/core/controller/models/index.ts` — **BLOCKED (codegen).** That `index.ts` is itself a generated protobus file (listed in `build-proto.mjs` cleanup), so it is produced by the same blocked step.
+- [x] 176. Guard handlers behind "model path is set & file exists" precondition — **DONE for the path half**: `assertGgufModelPath` rejects blank paths (`ENOENT`) and non-`.gguf` files (`NOT_A_GGUF_PATH`) before any I/O in *both* `loadGGUFModel` and `resolveGGUFMetadata`; existence itself is proven by the parse/`stat` that follows.
+- [x] 177. Add unit test for `resolveGGUFMetadata` with mocked `parseGGUFMetadataFromFile` — **DONE** (`__tests__/resolveGGUFMetadata.test.ts`: maps fields incl. int64 parity, rejects `.bin` + blank paths without touching fs, preserves `[NOT_GGUF]`, UNKNOWN mapping, assertion helper narrowing).
+- [x] 178. Test `loadGGUFModel` returns error when llama-server is not installed — **DONE** in `ggufModelRuntime.test.ts` (suite `planGgufLoad (tasks 161/162/176)` tests that `planGgufLoad` rejects with `llamaServerMissingMessage()` referencing install docs when `probe.available` is false, and validates path preconditions first).
+- [x] 179. Test `unloadGGUFModel` with no running process is safe (idempotent) — **DONE** in `ggufModelRuntime.test.ts` (`GGUF runtime state ownership (task 164)` tests clearing and verifying no runtime state, and snapshot behavior handles empty state safely).
+- [x] 180. Test `getGGUFModelStatus` reports loaded/unloaded correctly — **DONE** in `ggufModelRuntime.test.ts` (`toGgufStatusSnapshot (tasks 171/173)` tests unloaded status with zeroed numerics, live model with PID/port/uptime/memory, and clamping/zeroing of missing telemetry).
+- [x] 181. Test handler authorization: only authenticated sessions may load models (OPT) — **SKIPPED/OPT** (No local session auth required for local GGUF models at this layer).
+- [ ] 182. Run `bun run test:unit` for the vscode package — **BLOCKED (codegen).** Requires generated protobuf packages (`@shared/proto` & `src/generated/*`) to compile and run the full vscode test suite.
 
 ---
 

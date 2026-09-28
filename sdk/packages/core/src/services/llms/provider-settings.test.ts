@@ -97,4 +97,68 @@ describe("provider settings", () => {
 			baseUrl: "https://api.moonshot.ai/v1",
 		});
 	});
+
+	it("keeps local model settings through the persistence schema", () => {
+		const result = safeParseSettings({
+			provider: "local-gguf",
+			modelPath: "/models/tinyllama-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
+			contextWindow: 8192,
+		});
+
+		expect(result.success).toBe(true);
+		if (!result.success) {
+			throw new Error("expected local model settings to parse");
+		}
+
+		// The fields must survive validation, not just type-check: a stripping
+		// schema here silently breaks local model configuration for every host
+		// that persists through providers.json.
+		expect(result.data).toMatchObject({
+			provider: "local-gguf",
+			modelPath: "/models/tinyllama-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
+			contextWindow: 8192,
+		});
+
+		expect(toProviderConfig(result.data)).toMatchObject({
+			providerId: "local-gguf",
+			modelPath: "/models/tinyllama-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
+			contextWindow: 8192,
+			maxInputTokens: 8192,
+		});
+	});
+
+	it("rejects invalid local model knobs", () => {
+		// threads must be a positive count; gpuLayers may be zero (CPU only).
+		expect(
+			safeParseSettings({ provider: "local-gguf", threads: 0 }).success,
+		).toBe(false);
+		expect(
+			safeParseSettings({ provider: "local-gguf", threads: 2.5 }).success,
+		).toBe(false);
+		expect(
+			safeParseSettings({ provider: "local-gguf", gpuLayers: -1 }).success,
+		).toBe(false);
+		expect(
+			safeParseSettings({ provider: "local-gguf", gpuLayers: 0 }).success,
+		).toBe(true);
+	});
+
+	it("omits local model fields from the runtime config when unset", () => {
+		const config = toProviderConfig({
+			provider: "openai-compatible",
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "local-model",
+		});
+
+		expect(config).not.toHaveProperty("modelPath");
+		expect(config).not.toHaveProperty("threads");
+		expect(config).not.toHaveProperty("gpuLayers");
+		expect(config).not.toHaveProperty("contextWindow");
+	});
 });

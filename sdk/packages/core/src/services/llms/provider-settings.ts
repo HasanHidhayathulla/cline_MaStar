@@ -149,6 +149,14 @@ export const ProviderSettingsSchema = z.object({
 	routingProviderId: ProviderIdSchema.optional(),
 	maxTokens: z.number().int().positive().optional(),
 	contextWindow: z.number().int().positive().optional(),
+	// Local model file + its inference knobs (e.g. the `local-gguf` builtin,
+	// which runs a `.gguf` file through a local `llama-server`). These are
+	// ordinary provider settings so they survive a providers.json round-trip;
+	// `modelPath` in particular is the signal the host-side model catalog uses
+	// to resolve that provider's model list from the file itself.
+	modelPath: z.string().optional(),
+	threads: z.number().int().positive().optional(),
+	gpuLayers: z.number().int().nonnegative().optional(),
 	baseUrl: z.string().url().optional(),
 	headers: z.record(z.string(), z.string()).optional(),
 	timeout: z.number().int().positive().optional(),
@@ -264,6 +272,14 @@ export function toProviderConfig(
 		timeoutMs: settings.timeout,
 		maxOutputTokens: settings.maxTokens,
 		maxInputTokens: settings.contextWindow,
+		// Local model file + inference knobs, forwarded verbatim when present.
+		// The `local-gguf` handler factory reads them off `ProviderConfig`, so
+		// dropping them here would leave a configured local model unusable for
+		// every host that builds its session from providers.json.
+		...(settings.modelPath !== undefined ? { modelPath: settings.modelPath } : {}),
+		...(settings.threads !== undefined ? { threads: settings.threads } : {}),
+		...(settings.gpuLayers !== undefined ? { gpuLayers: settings.gpuLayers } : {}),
+		...(settings.contextWindow !== undefined ? { contextWindow: settings.contextWindow } : {}),
 		thinking: settings.reasoning?.enabled,
 		reasoningEffort,
 		thinkingBudgetTokens: settings.reasoning?.budgetTokens,

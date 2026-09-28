@@ -22,6 +22,8 @@ type ProviderSettingsLike = {
 	readonly auth?: AuthConfig
 	readonly extras?: ExtrasConfig
 	readonly modelPath?: string
+	readonly threads?: number
+	readonly gpuLayers?: number
 }
 
 const apiKeyFields: Partial<Record<string, keyof ApiConfiguration>> = {
@@ -166,6 +168,18 @@ function readPositiveInteger(value: unknown): number | undefined {
 	return undefined
 }
 
+/**
+ * Read a non-negative integer (0 is a real value, e.g. `gpuLayers: 0` =
+ * "CPU only"). Non-numeric, negative and non-finite values are ignored.
+ */
+function readNonNegativeInteger(value: unknown): number | undefined {
+	const parsed = typeof value === "string" ? Number(value) : value
+	if (typeof parsed === "number" && Number.isFinite(parsed) && parsed >= 0) {
+		return Math.floor(parsed)
+	}
+	return undefined
+}
+
 function readGcp(record: Record<string, unknown>): GcpProviderConfig | undefined {
 	const gcp = record.gcp
 	if (!isPlainRecord(gcp)) {
@@ -219,6 +233,8 @@ function readProviderSettings(providerId: ProviderId): ConfigParts {
 			auth: readAuth(settings),
 			extras: isPlainRecord(settings.extras) ? settings.extras : undefined,
 			modelPath: readString(settings, "modelPath"),
+			threads: readPositiveInteger(settings.threads),
+			gpuLayers: readNonNegativeInteger(settings.gpuLayers),
 		} satisfies ProviderSettingsLike
 	} catch {
 		return {}
@@ -402,8 +418,11 @@ export function buildEffectiveProviderConfig(providerId: ProviderId): EffectiveP
 	assignIfDefined(merged, "extras", mergeExtras(providerSettings.extras, stateConfig.extras))
 	// Local model file (e.g. the `local-gguf` provider's `.gguf` selection).
 	// providers.json is the only source: unlike Ollama's context window there
-	// is no legacy StateManager key to fall back to.
+	// is no legacy StateManager key to fall back to. The tuning knobs that
+	// accompany it (threads, GPU layers) follow the same rule.
 	assignIfDefined(merged, "modelPath", providerSettings.modelPath)
+	assignIfDefined(merged, "threads", providerSettings.threads)
+	assignIfDefined(merged, "gpuLayers", providerSettings.gpuLayers)
 
 	return { providerId, ...merged }
 }

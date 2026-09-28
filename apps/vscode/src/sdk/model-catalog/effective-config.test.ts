@@ -213,22 +213,47 @@ describe("buildEffectiveProviderConfig", () => {
 		})
 	})
 
-	it("surfaces the selected local model file from providers.json", async () => {
+	it("surfaces the selected local model file and its knobs from providers.json", async () => {
 		const { buildEffectiveProviderConfig } = await import("./effective-config")
 		mocks.setProviderSettings({
 			"local-gguf": {
 				provider: "local-gguf",
 				modelPath: "C:/models/tiny-Q4_K_M.gguf",
 				contextWindow: 4096,
+				threads: 8,
+				gpuLayers: 0,
 			},
 		})
 
 		// `modelPath` is the shape-based signal the model catalog uses to
-		// resolve this provider's model list from the file itself.
+		// resolve this provider's model list from the file itself; `threads`
+		// and `gpuLayers` configure the `llama-server` process that runs it
+		// (`gpuLayers: 0` is a real value: CPU only).
 		expect(buildEffectiveProviderConfig(parseProviderId("local-gguf"))).toEqual({
 			providerId: parseProviderId("local-gguf"),
 			contextWindow: 4096,
 			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
 		})
+	})
+
+	it("ignores unusable local model knobs instead of forwarding them", async () => {
+		const { buildEffectiveProviderConfig } = await import("./effective-config")
+		mocks.setProviderSettings({
+			"local-gguf": {
+				provider: "local-gguf",
+				modelPath: "C:/models/tiny-Q4_K_M.gguf",
+				// A hand-edited providers.json is trusted input for nothing:
+				// threads must be positive and gpuLayers non-negative.
+				threads: 0,
+				gpuLayers: -1,
+			},
+		})
+
+		const config = buildEffectiveProviderConfig(parseProviderId("local-gguf"))
+
+		expect(config.threads).toBeUndefined()
+		expect(config.gpuLayers).toBeUndefined()
 	})
 })

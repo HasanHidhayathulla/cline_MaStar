@@ -254,6 +254,82 @@ describe("provider model catalog handlers", () => {
 		expect(store.write).toHaveBeenCalledWith(providerId, { headers: {} })
 	})
 
+	it("writeProviderConfig passes the local model file and its knobs through (tasks 185/186)", async () => {
+		const { writeProviderConfig } = await import("../writeProviderConfig")
+		const providerId = parseProviderId("local-gguf")
+		const store = makeStore({ providerId })
+		const controller = makeController(store, makeCatalog())
+
+		await writeProviderConfig(controller, {
+			providerId: "local-gguf",
+			patch: {
+				modelPath: "C:/models/tiny-Q4_K_M.gguf",
+				threads: 8,
+				gpuLayers: 12,
+				contextWindow: 4096,
+				headers: {},
+			},
+		})
+
+		expect(store.write).toHaveBeenCalledWith(providerId, {
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 12,
+			contextWindow: 4096,
+		})
+	})
+
+	it("writeProviderConfig clears local model settings with documenting sentinels (task 186)", async () => {
+		const { writeProviderConfig } = await import("../writeProviderConfig")
+		const providerId = parseProviderId("local-gguf")
+		const store = makeStore({ providerId })
+		const controller = makeController(store, makeCatalog())
+
+		// Empty path, non-positive threads and negative GPU layers are the
+		// wire forms of "clear this". `gpuLayers: 0` is NOT one of them — it
+		// means CPU only.
+		await writeProviderConfig(controller, {
+			providerId: "local-gguf",
+			patch: { modelPath: "", threads: 0, gpuLayers: -1, headers: {} },
+		})
+
+		expect(store.write).toHaveBeenCalledWith(providerId, { modelPath: "", threads: null, gpuLayers: null })
+	})
+
+	it("writeProviderConfig keeps gpuLayers 0 as a real value (task 186)", async () => {
+		const { writeProviderConfig } = await import("../writeProviderConfig")
+		const providerId = parseProviderId("local-gguf")
+		const store = makeStore({ providerId })
+		const controller = makeController(store, makeCatalog())
+
+		await writeProviderConfig(controller, { providerId: "local-gguf", patch: { gpuLayers: 0, headers: {} } })
+
+		expect(store.write).toHaveBeenCalledWith(providerId, { gpuLayers: 0 })
+	})
+
+	it("readProviderConfig returns the local model config in the response (task 187)", async () => {
+		const { readProviderConfig } = await import("../readProviderConfig")
+		const providerId = parseProviderId("local-gguf")
+		const store = makeStore({
+			providerId,
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
+			contextWindow: 4096,
+		})
+		const controller = makeController(store, makeCatalog())
+
+		const response = await readProviderConfig(controller, { value: "local-gguf" })
+
+		expect(response).toMatchObject({
+			providerId: "local-gguf",
+			modelPath: "C:/models/tiny-Q4_K_M.gguf",
+			threads: 8,
+			gpuLayers: 0,
+			contextWindow: 4096,
+		})
+	})
+
 	it("commitModelSelection validates mode and commits model settings", async () => {
 		const { commitModelSelection } = await import("../commitModelSelection")
 		const providerId = parseProviderId("deepseek")

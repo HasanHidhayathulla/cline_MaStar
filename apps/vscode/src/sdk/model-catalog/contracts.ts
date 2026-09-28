@@ -128,6 +128,17 @@ export interface EffectiveProviderConfig {
 	 * remote catalog; see `local-model-file.ts`.
 	 */
 	readonly modelPath?: string
+	/**
+	 * CPU threads for local inference. Same host-side scope as `modelPath`:
+	 * authored by the settings UI for file-run providers and read here when
+	 * the provider session is built.
+	 */
+	readonly threads?: number
+	/**
+	 * Layers offloaded to the GPU for local inference; `0` means CPU only.
+	 * Same host-side scope as `modelPath`.
+	 */
+	readonly gpuLayers?: number
 }
 
 /**
@@ -163,6 +174,21 @@ export interface ProviderConfigPatch {
 	} | null
 	readonly reasoning?: ProviderReasoningPatch | null
 	readonly extras?: Readonly<Record<string, unknown>> | null
+	/**
+	 * Local model file for a file-run provider (e.g. `local-gguf`). An empty
+	 * string clears the selection; `null` also clears it.
+	 */
+	readonly modelPath?: string | null
+	/**
+	 * CPU threads for local inference. Values `<= 0` clear the setting so the
+	 * provider's declared default applies.
+	 */
+	readonly threads?: number | null
+	/**
+	 * GPU layers to offload for local inference. `0` is a real value (CPU
+	 * only); negative values clear the setting.
+	 */
+	readonly gpuLayers?: number | null
 }
 
 // ---------------------------------------------------------------------------
