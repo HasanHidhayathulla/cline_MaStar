@@ -25,6 +25,7 @@ import { HicapProvider } from "./providers/HicapProvider"
 import { HuggingFaceProvider } from "./providers/HuggingFaceProvider"
 import { LiteLlmProvider } from "./providers/LiteLlmProvider"
 import { LMStudioProvider } from "./providers/LMStudioProvider"
+import { LocalGGUFProvider } from "./providers/LocalGGUFProvider"
 import { MoonshotProvider } from "./providers/MoonshotProvider"
 import { OcaProvider } from "./providers/OcaProvider"
 import { OllamaProvider } from "./providers/OllamaProvider"
@@ -439,6 +440,9 @@ const ApiOptions = ({
 
 			{apiConfiguration && selectedProvider === "lmstudio" && (
 				<LMStudioProvider currentMode={currentMode} isPopup={isPopup} showModelOptions={showModelOptions} />
+			)}
+			{apiConfiguration && selectedProvider === "local-gguf" && (
+				<LocalGGUFProvider currentMode={currentMode} isPopup={isPopup} showModelOptions={showModelOptions} />
 			)}
 
 			{apiConfiguration && selectedProvider === "ollama" && (

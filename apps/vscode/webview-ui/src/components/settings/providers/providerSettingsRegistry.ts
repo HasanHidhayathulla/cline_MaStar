@@ -18,6 +18,7 @@ const CUSTOM_PROVIDER_SETTINGS_IDS = new Set([
 	"hicap",
 	"litellm",
 	"lmstudio",
+	"local-gguf",
 	"moonshot",
 	"oca",
 	"ollama",
