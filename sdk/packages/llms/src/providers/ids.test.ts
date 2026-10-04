@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+// `createHandler` lives in ../providers (the package facade), not the registry
+// module — the registry only exposes register/lookup helpers.
+import { createHandler } from "../providers";
 import {
 	createClineProvider,
 	createOpenAICompatibleProvider,
@@ -7,13 +10,12 @@ import {
 } from "./ai-sdk";
 import { BUILTIN_PROVIDER_REGISTRATIONS } from "./builtins-runtime";
 import {
-	createHandler,
 	getRegisteredHandler,
 	hasRegisteredHandler,
 	isRegisteredHandlerAsync,
 } from "./factory-registry";
-import { GGUFParseError } from "./gguf-parser";
 import { createGateway } from "./gateway";
+import { GGUFParseError } from "./gguf-parser";
 import { BUILT_IN_PROVIDER_IDS, normalizeProviderId } from "./ids";
 import {
 	getModelsForProvider,

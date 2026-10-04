@@ -25,6 +25,14 @@ export default defineConfig({
 			"src/core/controller/models/__tests__/refreshClineRecommendedModels.test.ts",
 			"src/core/controller/models/__tests__/refreshProviderModels.test.ts",
 			"src/core/controller/models/__tests__/refreshOpenAiModels.test.ts",
+			// Local GGUF handler suites (Phase 18). These were written but never
+			// registered here, so they had never actually executed. Note
+			// ggufModelRuntime.test.ts is deliberately absent: it imports
+			// "bun:test" and is discovered by `bun run test:unit` instead.
+			"src/core/controller/models/__tests__/getGGUFMetadata.test.ts",
+			"src/core/controller/models/__tests__/loadGGUFModel.handler.test.ts",
+			"src/core/controller/models/__tests__/unloadGGUFModel.handler.test.ts",
+			"src/core/controller/models/__tests__/getGGUFModelStatus.handler.test.ts",
 		],
 		environment: "node",
 		setupFiles: ["./src/test/vitest-setup.ts"],

@@ -1,7 +1,7 @@
 import { BooleanRequest, StringRequest } from "@shared/proto/cline/common"
 import { type GGUFMetadataResponse, LoadGGUFModelRequest } from "@shared/proto/cline/models"
 import { Mode } from "@shared/storage/types"
-import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react"
+import { VSCodeButton, VSCodeLink, VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react"
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { useProviderConfig } from "@/hooks/useProviderConfig"
@@ -255,7 +255,7 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 		return (
 			<div className="p-3 rounded-md mb-4 border border-(--vscode-input-border) bg-(--vscode-input-background)">
 				<h4 className="font-medium mb-2">{metadata.modelName || metadata.modelType || "Model metadata"}</h4>
-				<div className="grid grid-cols-2 gap-2 text-sm">
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
 					{rows.map(([label, value]) => (
 						<div key={label}>
 							<span className="font-semibold">{label}:</span> {value}
@@ -269,18 +269,40 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 		)
 	}
 
+	// Tasks 299/300/302 — one status affordance for all three states. The
+	// spinner is the toolkit's `VSCodeProgressRing`, which themes itself from
+	// `--vscode-progressBar-background`; the pass/error colours come from the
+	// testing-icon theme tokens so they follow the active color theme.
 	const renderStatusDot = () => {
-		if (modelLoaded) {
+		if (isLoading) {
 			return (
-				<span className="text-xs" style={{ color: "var(--vscode-testing-iconPassed)" }}>
-					● Model loaded
+				<span className="inline-flex items-center gap-2 text-xs" style={{ color: "var(--vscode-descriptionForeground)" }}>
+					<VSCodeProgressRing aria-label="Loading model" />
+					Loading model…
 				</span>
 			)
 		}
-		if (isLoading) {
-			return <span className="text-xs text-(--vscode-descriptionForeground)">◌ Working…</span>
+		if (modelLoaded) {
+			return (
+				<span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--vscode-testing-iconPassed)" }}>
+					<span aria-hidden="true">✓</span>
+					Model loaded
+				</span>
+			)
 		}
-		return <span className="text-xs text-(--vscode-descriptionForeground)">○ Model not loaded</span>
+		if (error) {
+			return (
+				<span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--vscode-testing-iconFailed)" }}>
+					<span aria-hidden="true">✗</span>
+					Model not loaded
+				</span>
+			)
+		}
+		return (
+			<span className="text-xs" style={{ color: "var(--vscode-descriptionForeground)" }}>
+				○ Model not loaded
+			</span>
+		)
 	}
 
 	const renderErrorBanner = () => {
@@ -300,6 +322,9 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 					backgroundColor: "var(--vscode-inputValidation-errorBackground)",
 					color: "var(--vscode-errorForeground)",
 				}}>
+				<span aria-hidden="true" style={{ color: "var(--vscode-testing-iconFailed)" }}>
+					✗
+				</span>
 				<span className="text-sm">{error}</span>
 				{isNotInstalled && (
 					<p className="text-sm mt-2 mb-0">
@@ -313,7 +338,7 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 	}
 
 	return (
-		<div className="p-6 space-y-6">
+		<div className="flex flex-col gap-2">
 			{renderErrorBanner()}
 
 			<div>
@@ -374,6 +399,7 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 						}
 						step="1"
 						style={{ width: "80px" }}
+						title="Layers to offload to the GPU (-ngl). 0 runs on CPU only; a negative value clears the setting."
 						type="number"
 						value={String(config?.gpuLayers ?? 0)}
 					/>
@@ -404,6 +430,7 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 						placeholder={`Default: ${DEFAULT_CONTEXT_WINDOW}`}
 						step="1"
 						style={{ width: "100px" }}
+						title="Context window in tokens (-c). Larger windows let the model keep more history, at the cost of RAM/VRAM. Must be greater than 0."
 						type="number"
 						value={String(config?.contextWindow ?? DEFAULT_CONTEXT_WINDOW)}
 					/>
@@ -431,6 +458,7 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 						}}
 						step="1"
 						style={{ width: "80px" }}
+						title="CPU threads used for inference (-t). More threads can speed up prompt processing, at the cost of leaving fewer cores free."
 						type="number"
 						value={String(config?.threads ?? DEFAULT_THREADS)}
 					/>
@@ -447,13 +475,27 @@ export const LocalGGUFProvider = ({ showModelOptions, currentMode }: LocalGGUFPr
 
 				{!modelLoaded && (
 					<VSCodeButton appearance="primary" disabled={isLoading || !modelPath || !metadata} onClick={handleLoadModel}>
-						Load model
+						{isLoading ? (
+							<>
+								<VSCodeProgressRing aria-label="Loading model" />
+								Loading…
+							</>
+						) : (
+							<>Load model</>
+						)}
 					</VSCodeButton>
 				)}
 
 				{modelLoaded && (
 					<VSCodeButton appearance="secondary" disabled={isLoading} onClick={handleUnloadModel}>
-						Unload model
+						{isLoading ? (
+							<>
+								<VSCodeProgressRing aria-label="Unloading model" />
+								Unloading…
+							</>
+						) : (
+							<>Unload model</>
+						)}
 					</VSCodeButton>
 				)}
 

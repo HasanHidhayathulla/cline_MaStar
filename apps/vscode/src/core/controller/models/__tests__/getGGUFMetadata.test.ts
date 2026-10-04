@@ -1,7 +1,7 @@
 import { GGUFParseError } from "@cline/llms"
-import type { Controller } from ".."
 import { StringRequest } from "@shared/proto/cline/common"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { Controller } from "../.."
 import { getGGUFMetadata } from "../getGGUFMetadata"
 
 const mocks = vi.hoisted(() => ({
@@ -43,10 +43,7 @@ describe("getGGUFMetadata (task 177)", () => {
 	})
 
 	it("maps parsed metadata onto the proto response", async () => {
-		const response = await getGGUFMetadata(
-			{} as unknown as Controller,
-			StringRequest.create({ value: "/models/tiny.gguf" }),
-		)
+		const response = await getGGUFMetadata({} as unknown as Controller, StringRequest.create({ value: "/models/tiny.gguf" }))
 
 		expect(response.architecture).toBe("llama")
 		expect(response.modelType).toBe("llama-3")
@@ -64,10 +61,7 @@ describe("getGGUFMetadata (task 177)", () => {
 	it("falls back to modelType when the file declares no general.name", async () => {
 		mocks.parseGGUFMetadataFromFile.mockResolvedValue({ ...baseMetadata, name: "" })
 
-		const response = await getGGUFMetadata(
-			{} as unknown as Controller,
-			StringRequest.create({ value: "/models/tiny.gguf" }),
-		)
+		const response = await getGGUFMetadata({} as unknown as Controller, StringRequest.create({ value: "/models/tiny.gguf" }))
 
 		expect(response.modelName).toBe("llama-3")
 	})
@@ -80,9 +74,9 @@ describe("getGGUFMetadata (task 177)", () => {
 	})
 
 	it("rejects an empty path without touching the filesystem", async () => {
-		await expect(
-			getGGUFMetadata({} as unknown as Controller, StringRequest.create({ value: "   " })),
-		).rejects.toThrow("[ENOENT]")
+		await expect(getGGUFMetadata({} as unknown as Controller, StringRequest.create({ value: "   " }))).rejects.toThrow(
+			"[ENOENT]",
+		)
 		expect(mocks.parseGGUFMetadataFromFile).not.toHaveBeenCalled()
 	})
 
@@ -90,10 +84,7 @@ describe("getGGUFMetadata (task 177)", () => {
 		mocks.parseGGUFMetadataFromFile.mockRejectedValue(new GGUFParseError("NOT_GGUF", "Not a GGUF file: /models/bogus.gguf"))
 
 		await expect(
-			getGGUFMetadata(
-				{} as unknown as Controller,
-				StringRequest.create({ value: "/models/bogus.gguf" }),
-			),
+			getGGUFMetadata({} as unknown as Controller, StringRequest.create({ value: "/models/bogus.gguf" })),
 		).rejects.toThrow("[NOT_GGUF]")
 	})
 })

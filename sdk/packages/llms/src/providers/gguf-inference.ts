@@ -12,14 +12,13 @@
  * - `dispose()` always terminates the child process.
  */
 
-import {
-	spawn,
-	type ChildProcessByStdio,
-} from "node:child_process";
-import type { Readable } from "node:stream";
+import { type ChildProcessByStdio, spawn } from "node:child_process";
 import { createServer } from "node:net";
 import os from "node:os";
+import type { Readable } from "node:stream";
 import { setTimeout as sleep } from "node:timers/promises";
+import { type GGUFMetadata, parseGGUFMetadataFromFile } from "./gguf-parser";
+import type { ApiHandler, HandlerModelInfo } from "./handler";
 import type {
 	ApiStream,
 	ApiStreamChunk,
@@ -27,9 +26,6 @@ import type {
 	Message,
 	ToolDefinition,
 } from "./types";
-import type { ApiHandler } from "./handler";
-import type { HandlerModelInfo } from "./handler";
-import { parseGGUFMetadataFromFile, type GGUFMetadata } from "./gguf-parser";
 
 export interface GGUFInferenceConfig {
 	modelPath: string;
@@ -68,7 +64,11 @@ function flattenContent(content: string | ContentBlock[] | undefined): string {
 		return "";
 	}
 	return content
-		.map((block) => (typeof block === "object" && block !== null && "text" in block ? String(block.text) : ""))
+		.map((block) =>
+			typeof block === "object" && block !== null && "text" in block
+				? String(block.text)
+				: "",
+		)
 		.filter((text) => text.length > 0)
 		.join("\n");
 }
@@ -105,14 +105,20 @@ export async function findFreePort(): Promise<number> {
 		server.once("error", reject);
 		server.listen(0, "127.0.0.1", () => {
 			const address = server.address();
-			const port = typeof address === "object" && address ? address.port : DEFAULT_PORT_MIN;
+			const port =
+				typeof address === "object" && address
+					? address.port
+					: DEFAULT_PORT_MIN;
 			server.close(() => resolve(port));
 		});
 	});
 }
 
 /** Task 77 — build the llama-server argv; `--jinja` uses the GGUF chat template. */
-export function buildLlamaServerArgs(config: GGUFInferenceConfig, port: number): string[] {
+export function buildLlamaServerArgs(
+	config: GGUFInferenceConfig,
+	port: number,
+): string[] {
 	return [
 		"-m",
 		config.modelPath,
@@ -161,10 +167,19 @@ export async function waitForReadiness(
 		}
 		await sleep(READINESS_INTERVAL_MS);
 	}
-	throw new Error(`llama-server did not become ready within ${timeoutMs}ms: ${lastError}`);
+	throw new Error(
+		`llama-server did not become ready within ${timeoutMs}ms: ${lastError}`,
+	);
 }
 
-const RUNNING_SERVERS = new Map<string, LlamaServerProcess>();
+/** A live server plus the port it was bound to. The child process alone carries
+ * no port, so a handler that reuses an existing server needs both. */
+interface RunningServer {
+	process: LlamaServerProcess;
+	port: number;
+}
+
+const RUNNING_SERVERS = new Map<string, RunningServer>();
 
 function disposeProcess(process: LlamaServerProcess): void {
 	if (process.exitCode === null && !process.killed) {
@@ -173,7 +188,11 @@ function disposeProcess(process: LlamaServerProcess): void {
 }
 
 export class GGUFInferenceError extends Error {
-	readonly code: "NOT_INSTALLED" | "MODEL_NOT_FOUND" | "LOAD_FAILED" | "SERVER_ERROR";
+	readonly code:
+		| "NOT_INSTALLED"
+		| "MODEL_NOT_FOUND"
+		| "LOAD_FAILED"
+		| "SERVER_ERROR";
 	constructor(
 		code: "NOT_INSTALLED" | "MODEL_NOT_FOUND" | "LOAD_FAILED" | "SERVER_ERROR",
 		message: string,
@@ -200,7 +219,11 @@ export class GGUFInferenceHandler implements ApiHandler {
 	async initialize(): Promise<void> {
 		const existing = RUNNING_SERVERS.get(this.config.modelPath);
 		if (existing) {
-			this.process = existing;
+			// Adopt the port alongside the child: a reused handler that left
+			// `this.port` at 0 would fail every later request with
+			// "Model is not loaded" even though the server is up.
+			this.process = existing.process;
+			this.port = existing.port;
 			return;
 		}
 		const probe = await detectLlamaServer();
@@ -229,7 +252,10 @@ export class GGUFInferenceHandler implements ApiHandler {
 			}
 		});
 		try {
-			await waitForReadiness(this.port, this.config.timeoutMs ?? READINESS_TIMEOUT_MS);
+			await waitForReadiness(
+				this.port,
+				this.config.timeoutMs ?? READINESS_TIMEOUT_MS,
+			);
 		} catch (error) {
 			disposeProcess(child);
 			RUNNING_SERVERS.delete(this.config.modelPath);
@@ -239,7 +265,10 @@ export class GGUFInferenceHandler implements ApiHandler {
 			);
 		}
 		this.process = child;
-		RUNNING_SERVERS.set(this.config.modelPath, child);
+		RUNNING_SERVERS.set(this.config.modelPath, {
+			process: child,
+			port: this.port,
+		});
 	}
 
 	get baseUrl(): string {
@@ -275,7 +304,10 @@ export class GGUFInferenceHandler implements ApiHandler {
 	): ApiStream {
 		const controller = this.abortController;
 		const port = this.port;
-		const payload = this.getMessages(systemPrompt, messages) as Record<string, unknown>;
+		const payload = this.getMessages(systemPrompt, messages) as Record<
+			string,
+			unknown
+		>;
 		return (async function* () {
 			if (!port) {
 				throw new GGUFInferenceError(
@@ -283,18 +315,26 @@ export class GGUFInferenceHandler implements ApiHandler {
 					"Model is not loaded; call initialize() first",
 				);
 			}
-			const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({
-					...payload,
-					stream: true,
-					...(tools && tools.length > 0
-						? { tools: tools.map((tool) => ({ type: "function", function: tool })) }
-						: {}),
-				}),
-				signal: controller.signal,
-			});
+			const response = await fetch(
+				`http://127.0.0.1:${port}/v1/chat/completions`,
+				{
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({
+						...payload,
+						stream: true,
+						...(tools && tools.length > 0
+							? {
+									tools: tools.map((tool) => ({
+										type: "function",
+										function: tool,
+									})),
+								}
+							: {}),
+					}),
+					signal: controller.signal,
+				},
+			);
 			if (!response.ok || !response.body) {
 				throw new GGUFInferenceError(
 					"SERVER_ERROR",
@@ -359,7 +399,9 @@ export class GGUFInferenceHandler implements ApiHandler {
 			this.abortController.abort();
 			return;
 		}
-		signal.addEventListener("abort", () => this.abortController.abort(), { once: true });
+		signal.addEventListener("abort", () => this.abortController.abort(), {
+			once: true,
+		});
 	}
 
 	/** Task 89 — kill the child process and release the port. */
@@ -388,7 +430,10 @@ export function mapDeltaToChunks(data: OpenAIDelta): ApiStreamChunk[] {
 	const choice = data.choices?.[0];
 	const delta = choice?.delta;
 	if (delta?.reasoning_content) {
-		chunks.push({ type: "reasoning", reasoning: delta.reasoning_content } as ApiStreamChunk);
+		chunks.push({
+			type: "reasoning",
+			reasoning: delta.reasoning_content,
+		} as ApiStreamChunk);
 	}
 	if (delta?.content) {
 		chunks.push({ type: "text", text: delta.content } as ApiStreamChunk);
@@ -410,7 +455,7 @@ export function mapDeltaToChunks(data: OpenAIDelta): ApiStreamChunk[] {
 export function getRunningServer(
 	modelPath: string,
 ): LlamaServerProcess | undefined {
-	return RUNNING_SERVERS.get(modelPath);
+	return RUNNING_SERVERS.get(modelPath)?.process;
 }
 
 /** Diagnostic helper: total logical CPU count (UI clamps `threads`). */

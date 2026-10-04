@@ -12,7 +12,7 @@ import { GGUFModelStatus } from "@shared/proto/cline/models"
 import { fetch } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
 import { Controller } from ".."
-import { getGgufRuntimeState, readSystemInfoMemoryBytes, toGgufStatusSnapshot } from "./ggufModelRuntime"
+import { clearGgufRuntimeState, getGgufRuntimeState, readSystemInfoMemoryBytes, toGgufStatusSnapshot } from "./ggufModelRuntime"
 
 /** Short timeout: status is a UI affordance and must not stall the webview. */
 const SYSTEM_INFO_TIMEOUT_MS = 2_000
@@ -47,7 +47,16 @@ export async function getGGUFModelStatus(controller: Controller, request: String
 
 	try {
 		// Task 171 — PID comes from the live child process.
-		const pid = getRunningServer(state.modelPath)?.pid
+		const running = getRunningServer(state.modelPath)
+		if (!running) {
+			// The SDK registry drops the child when it exits, so a held reference
+			// with no registry entry means the process is gone. Release it and
+			// report "not loaded"; otherwise the UI keeps claiming a live
+			// model (with PID 0) and the controller pins a dead process forever.
+			clearGgufRuntimeState(controller)
+			return GGUFModelStatus.create(toGgufStatusSnapshot({ nowMs: Date.now() }))
+		}
+		const pid = running.pid
 		const memoryBytes = await querySystemInfoMemoryBytes(state.handler.getServerPort())
 		return GGUFModelStatus.create(toGgufStatusSnapshot({ state, nowMs: Date.now(), pid, memoryBytes }))
 	} catch (error) {

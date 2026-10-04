@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { FormEventHandler, ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { LocalGGUFProvider } from "./LocalGGUFProvider"
@@ -30,6 +30,9 @@ const metadata = {
 // behavior is observable in jsdom.
 vi.mock("@vscode/webview-ui-toolkit/react", () => ({
 	VSCodeLink: ({ children, href }: { children?: ReactNode; href?: string }) => <a href={href}>{children}</a>,
+	VSCodeProgressRing: ({ "aria-label": ariaLabel }: { "aria-label"?: string }) => (
+		<span aria-label={ariaLabel} data-testid="progress-ring" role="progressbar" />
+	),
 	VSCodeButton: ({ children, disabled, onClick }: { children?: ReactNode; disabled?: boolean; onClick?: () => void }) => (
 		<button disabled={disabled} onClick={onClick} type="button">
 			{children}
@@ -184,7 +187,8 @@ describe("LocalGGUFProvider", () => {
 		})
 		renderProvider()
 
-		expect(await screen.findByText("● Model loaded")).toBeInTheDocument()
+		expect(await screen.findByText("Model loaded")).toBeInTheDocument()
+		expect(screen.getByText("✓")).toBeInTheDocument()
 		expect(screen.getByText("PID: 4321")).toBeInTheDocument()
 		expect(screen.getByText("Memory: 1.9 GB")).toBeInTheDocument()
 
@@ -257,5 +261,58 @@ describe("LocalGGUFProvider", () => {
 
 		await waitFor(() => expect(mocks.write).toHaveBeenCalledWith({ modelPath: "" }))
 		expect(screen.getByLabelText("GGUF model file path")).toHaveValue("")
+	})
+
+	// Task 310 — all three visual states must be reachable and distinguishable.
+	it("renders a themed spinner while a load is in flight", async () => {
+		// Leave the metadata read pending so the component stays in its
+		// loading state instead of settling.
+		mocks.getGGUFMetadata.mockReturnValue(new Promise(() => undefined))
+		renderProvider()
+
+		expect(await screen.findByText("Loading model…")).toBeInTheDocument()
+		expect(screen.getAllByTestId("progress-ring").length).toBeGreaterThan(0)
+	})
+
+	it("renders the success state with a check icon once loaded", async () => {
+		mocks.getGGUFModelStatus.mockResolvedValue({
+			loaded: true,
+			modelPath: mocks.MODEL_PATH,
+			pid: 4321,
+			memoryBytes: 2_000_000_000,
+		})
+		renderProvider()
+
+		expect(await screen.findByText("Model loaded")).toBeInTheDocument()
+		expect(screen.getByText("✓")).toBeInTheDocument()
+	})
+
+	it("renders the error state with a cross icon after a failed load", async () => {
+		mocks.loadGGUFModel.mockResolvedValue({
+			success: false,
+			modelId: "local-model",
+			error: "[LOAD_FAILED] boom",
+			serverVersion: "",
+		})
+		renderProvider()
+		await screen.findByText("TinyLlama Chat")
+
+		fireEvent.click(screen.getByRole("button", { name: "Load model" }))
+
+		// The cross appears in both the banner and the status dot, so scope the
+		// query to the alert rather than matching on the glyph alone.
+		const alert = await screen.findByRole("alert")
+		expect(alert).toHaveTextContent("LOAD_FAILED")
+		expect(within(alert).getByText("✗")).toBeInTheDocument()
+	})
+
+	// Task 308 — the tuning knobs carry the llama-server flag they map to.
+	it("explains what each inference knob maps to", async () => {
+		renderProvider()
+		await screen.findByText("TinyLlama Chat")
+
+		expect(screen.getByLabelText("CPU threads for inference")).toHaveAttribute("title", expect.stringContaining("-t"))
+		expect(screen.getByLabelText("Context window in tokens")).toHaveAttribute("title", expect.stringContaining("-c"))
+		expect(screen.getByLabelText("GPU layers to offload")).toHaveAttribute("title", expect.stringContaining("-ngl"))
 	})
 })

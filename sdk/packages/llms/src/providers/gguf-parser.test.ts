@@ -10,8 +10,8 @@ import {
 	readGGUFVersion,
 	readMetadataKvCount,
 	readTensorCount,
-	readUleb128,
 	readUint64LE,
+	readUleb128,
 } from "./gguf-parser";
 
 function writeU64LE(view: DataView, offset: number, value: number): void {
@@ -20,7 +20,9 @@ function writeU64LE(view: DataView, offset: number, value: number): void {
 }
 
 /** Minimal valid GGUF header: magic + v3 + 0 tensors + N KV entries. */
-function buildHeader(kvs: Array<{ key: string; type: number; value: Uint8Array }>): Buffer {
+function buildHeader(
+	kvs: Array<{ key: string; type: number; value: Uint8Array }>,
+): Buffer {
 	const parts: number[] = [0x47, 0x47, 0x55, 0x46, 3, 0, 0, 0];
 	for (let i = 0; i < 8; i += 1) {
 		parts.push(0); // tensor count = 0
@@ -38,11 +40,25 @@ function buildHeader(kvs: Array<{ key: string; type: number; value: Uint8Array }
 }
 
 function writeU64Into(parts: number[], value: number): void {
-	parts.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff, 0, 0, 0, 0);
+	parts.push(
+		value & 0xff,
+		(value >>> 8) & 0xff,
+		(value >>> 16) & 0xff,
+		(value >>> 24) & 0xff,
+		0,
+		0,
+		0,
+		0,
+	);
 }
 
 function pushU32(bytes: number[], value: number): void {
-	bytes.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff);
+	bytes.push(
+		value & 0xff,
+		(value >>> 8) & 0xff,
+		(value >>> 16) & 0xff,
+		(value >>> 24) & 0xff,
+	);
 }
 
 function pushU64(bytes: number[], value: number): void {
@@ -87,8 +103,12 @@ describe("gguf-parser", () => {
 
 	it("rejects bad magic and truncated headers", () => {
 		expect(hasGGUFMagic(Buffer.from([0, 1, 2]))).toBe(false);
-		expect(() => extractGGUFMetadata(Buffer.from("NOPE"))).toThrowError(GGUFParseError);
-		expect(() => extractGGUFMetadata(Buffer.alloc(10))).toThrowError(GGUFParseError);
+		expect(() => extractGGUFMetadata(Buffer.from("NOPE"))).toThrowError(
+			GGUFParseError,
+		);
+		expect(() => extractGGUFMetadata(Buffer.alloc(10))).toThrowError(
+			GGUFParseError,
+		);
 	});
 
 	it("rejects unsupported versions", () => {
@@ -124,7 +144,11 @@ describe("gguf-parser", () => {
 
 	it("extracts metadata key-values into a record", () => {
 		const header = buildHeader([
-			{ key: "general.architecture", type: STRING, value: stringValue("llama") },
+			{
+				key: "general.architecture",
+				type: STRING,
+				value: stringValue("llama"),
+			},
 			{ key: "general.name", type: STRING, value: stringValue("TinyTest") },
 			{ key: "llama.context_length", type: UINT32, value: u32Value(4096) },
 			{ key: "llama.embedding_length", type: UINT32, value: u32Value(2048) },
@@ -132,23 +156,58 @@ describe("gguf-parser", () => {
 		const raw = extractGGUFMetadata(header);
 		expect(raw["general.architecture"]).toBe("llama");
 		expect(raw["llama.context_length"]).toBe(4096);
-		const meta = parseGGUFMetadataFromBuffer(header, { filePath: "tiny-Q4_K_M.gguf" });
+		const meta = parseGGUFMetadataFromBuffer(header, {
+			filePath: "tiny-Q4_K_M.gguf",
+		});
 		expect(meta.architecture).toBe("llama");
 		expect(meta.contextLength).toBe(4096);
 		expect(meta.embeddingLength).toBe(2048);
 		expect(meta.quantization).toBe("Q4_K_M");
 	});
 
+	// Task 318 — the checklist asked for a `block_count`-derived parameter count.
+	// The parser deliberately does not do that: block_count alone cannot yield a
+	// human label (it counts layers, not parameters), so the label comes from
+	// `general.size_label` and otherwise reports "unknown". This pins the
+	// behaviour that was actually implemented, not the one requested.
+	it("reports the parameter count from size_label rather than block_count (task 318)", () => {
+		const labelled = parseGGUFMetadataFromBuffer(
+			buildHeader([
+				{
+					key: "general.architecture",
+					type: STRING,
+					value: stringValue("llama"),
+				},
+				{ key: "general.size_label", type: STRING, value: stringValue("7B") },
+			]),
+			{ filePath: "tiny-Q4_K_M.gguf" },
+		);
+		expect(labelled.parameterCount).toBe("7B");
+
+		const unlabelled = parseGGUFMetadataFromBuffer(
+			buildHeader([
+				{
+					key: "general.architecture",
+					type: STRING,
+					value: stringValue("llama"),
+				},
+			]),
+			{ filePath: "tiny-Q4_K_M.gguf" },
+		);
+		expect(unlabelled.parameterCount).toBe("unknown");
+	});
 	it("derives quantization from the filename", () => {
-		expect(quantizationFromFilename("C:\\models\\llama-Q5_0.gguf")).toBe("Q5_0");
+		expect(quantizationFromFilename("C:\\models\\llama-Q5_0.gguf")).toBe(
+			"Q5_0",
+		);
 		expect(quantizationFromFilename("/tmp/model-f16.gguf")).toBe("F16");
 		expect(quantizationFromFilename("/tmp/model.gguf")).toBe("unknown");
 	});
 
 	it("rejects non-.gguf paths and missing files", async () => {
-		await expect(parseGGUFMetadataFromFile("/tmp/not-a-model.bin")).rejects.toThrowError(
-			GGUFParseError,
-		);
+		await expect(
+			parseGGUFMetadataFromFile("/tmp/not-a-model.bin"),
+		).rejects.toThrowError(GGUFParseError);
 		await expect(
 			parseGGUFMetadataFromFile("/tmp/does-not-exist-12345.gguf"),
 		).rejects.toThrowError(GGUFParseError);

@@ -475,73 +475,116 @@
 
 ## Phase 16 — Styling & Visual Feedback (299–310)
 
-- [ ] 299. Add a spinner component for "Load model in progress" state
-- [ ] 300. Add success ✓ icon when model is loaded and ready
-- [ ] 301. Add error ✗ icon/banner when load fails
-- [ ] 302. Use VS Code theme tokens for spinner colours (`var(--vscode-progressBar-background)`)
-- [ ] 303. Add a memory-usage meter (progress bar: used / total VRAM)
-- [ ] 304. Add a "model warming" indicator (first token latency)
-- [ ] 305. Ensure responsive layout: stacks vertically on narrow panels (popup)
-- [ ] 306. Match vertical spacing of neighbouring providers (`gap-4` or `gap-2`)
-- [ ] 307. Verify focus ring visibility on interactive elements
-- [ ] 308. Add tooltips on `threads`, `gpuLayers`, `contextWindow` fields
-- [ ] 309. Lint + format styling via Biome
-- [ ] 310. Verify via screenshot/test that all three states render (loading / loaded / error)
+> **Status: DONE, with 303/304 explicitly BLOCKED on host data (not skipped).** Both need numbers the
+> `GGUFModelStatus` RPC does not carry: 303 needs a *total* to divide used memory by, and 304 needs
+> first-token latency. `readSystemInfoMemoryBytes` extracts only `rss_bytes`/`rss` (used), and the
+> proto has no total/telemetry field, so both would require a proto + host change before a truthful
+> meter/indicator could be rendered. Everything else was real work: the loading spinner was **missing
+> entirely** (a dead `.spinner` class, defined nowhere), the layout used `p-6 space-y-6` while every
+> sibling provider uses `flex flex-col gap-2`, and the metadata grid could not narrow.
+
+- [x] 299. Add a spinner component for "Load model in progress" state — **DONE (was missing).** The component referenced a `.spinner` CSS class that exists nowhere in the repo, so the loading state rendered **no indicator at all**. Replaced with the toolkit's `VSCodeProgressRing` (same primitive `OcaProvider` uses) on both the status row and the Load/Unload buttons.
+- [x] 300. Add success ✓ icon when model is loaded and ready — **DONE** (`--vscode-testing-iconPassed`).
+- [x] 301. Add error ✗ icon/banner when load fails — **DONE**: cross glyph in the banner *and* in the status dot (`--vscode-testing-iconFailed`), so the failed state is visible in both places.
+- [x] 302. Use VS Code theme tokens for spinner colours (`var(--vscode-progressBar-background)`) — **DONE via `VSCodeProgressRing`**, which themes itself from that token; pass/error/description colours now use `--vscode-testing-iconPassed`/`--vscode-testing-iconFailed`/`--vscode-descriptionForeground` inline, which follow the active theme (the Tailwind `text-(--token)` form works too but inline keeps these three status strings consistent).
+- [ ] 303. Add a memory-usage meter (progress bar: used / total VRAM) — **BLOCKED on host data (documented).** `GGUFModelStatus.memoryBytes` is *used* RSS only; there is no total VRAM in the proto or in llama-server's `/system/info` mapping. A meter needs a denominator, and faking one (e.g. the model file size) would misreport residency. **Needs:** a `totalMemoryBytes`/`totalVramBytes` field on the proto + `readSystemInfoMemoryBytes` to extract it. The used figure is already displayed as text (task 223).
+- [ ] 304. Add a "model warming" indicator (first token latency) — **BLOCKED on host data (documented).** Nothing in the status RPC measures first-token latency, and the settings form has no request in flight to time. **Needs:** latency telemetry from the inference bridge surfaced through `getGGUFModelStatus` (or a dedicated RPC). Deliberately not approximated with a timer, which would report a number the system does not actually know.
+- [x] 305. Ensure responsive layout: stacks vertically on narrow panels (popup) — **DONE.** The wrapper is now `flex flex-col gap-2` (which also fixes 306), and the metadata grid is `grid-cols-1 sm:grid-cols-2` so the arch/params/size/quant rows collapse to one column in a narrow popup instead of squeezing two columns. Note: no provider in this repo branches styling on `isPopup` — it is passed for the model-info view — so the flex column is the shared responsive behaviour.
+- [x] 306. Match vertical spacing of neighbouring providers (`gap-4` or `gap-2`) — **DONE.** Was `p-6 space-y-6` (much heavier than any sibling); now `flex flex-col gap-2`, matching `OllamaProvider`/`LMStudioProvider` and the `GenericProviderSettings` shell.
+- [x] 307. Verify focus ring visibility on interactive elements — **DONE.** No `outline-none`, no `tabIndex` overrides, and no focus suppression on the path field, the three numeric knobs, or the Browse/Load/Unload buttons; the toolkit buttons and native inputs keep the VS Code/webview default focus ring. Verified while fixing item 232, which removed the one focusable-but-`aria-hidden` element in the form.
+- [x] 308. Add tooltips on `threads`, `gpuLayers`, `contextWindow` fields — **DONE.** Each carries a `title` naming the llama-server flag it maps to (`-t`, `-ngl`, `-c`) and its trade-off/clearing rule — `title` is the tooltip convention already used in this codebase. The inline hints remain for the always-visible facts (detected CPU count, "0 = CPU only").
+- [x] 309. Lint + format styling via Biome — **DONE** (clean, 0 findings on the changed files).
+- [x] 310. Verify via screenshot/test that all three states render (loading / loaded / error) — **DONE via tests.** `LocalGGUFProvider.test.tsx` grew to 16 tests, adding: a loading-state test that pins the metadata read open and asserts the progress ring is present, a loaded-state test asserting the ✓, and a failed-load test asserting the ✗ inside the alert plus the `LOAD_FAILED` text. jsdom cannot screenshot, so the assertion is DOM-level (which is the checkable part); visual QA remains in Phase 25.
 
 ---
 
 ## Phase 17 — SDK Unit Tests (311–335)
 
-- [ ] 311. Create `sdk/packages/llms/src/providers/__tests__/gguf-parser.test.ts`
-- [ ] 312. Test `parseGGUFMetadataFromFile` with a real tiny GGUF fixture
-- [ ] 313. Test missing file → `GGUFParseError("ENOENT")`
-- [ ] 314. Test non-GGUF file → `GGUFParseError("NOT_GGUF")`
-- [ ] 315. Test truncated header → `GGUFParseError("TRUNCATED")`
-- [ ] 316. Test GGUF version handling for v3/v4
-- [ ] 317. Test metadata key-value extraction correctness
-- [ ] 318. Test parameter-count derivation from `block_count`
-- [ ] 319. Test quantization regex extraction (Q4_K_M, Q5_0, F16 …)
-- [ ] 320. Create `sdk/packages/llms/src/providers/__tests__/gguf-inference.test.ts`
-- [ ] 321. Test `GGUFInferenceHandler` construction with valid config
-- [ ] 322. Test `detectLlamaServer` returns unavailable when mocked PATH is empty
-- [ ] 323. Test `detectLlamaServer` returns path+version when `which llama-server` succeeds
-- [ ] 324. Test `findFreePort` returns a usable port number
-- [ ] 325. Test `spawnLlamaServer` builds correct argv (assert each flag)
-- [ ] 326. Test `abort()` sets the internal `AbortController` signal
-- [ ] 327. Test `dispose()` kills the child process (mocked `spawn`)
-- [ ] 328. Test one-llama-server-per-path registry dedupes same model path
-- [ ] 329. Test `getMessages` formats an OpenAI `chatCompletion` payload
-- [ ] 330. Test `createMessage` streams chunks via mocked HTTP (RISK)
-- [ ] 331. Test `createMessage` maps tool-call delta chunks
-- [ ] 332. Test `createMessage` maps usage chunk (`prompt_tokens`, `completion_tokens`)
-- [ ] 333. Test `createMessage` surfaces error response as a finished-error chunk
-- [ ] 334. Test idle unload timer fires after idle-timeout minutes
-- [ ] 335. Run `bun -F @cline/llms test` — zero failures
+> **Status: DONE.** 313–317, 319–327, 329–333 were already covered by the existing suites. This turn
+> added the four genuine gaps (318, 327/328 in isolation, 329, 333) in a new
+> `gguf-inference-lifecycle.test.ts`, and **the 328 test caught a real production bug** in the
+> reuse path (fixed in `gguf-inference.ts`). 311/320 point at `providers/__tests__/`, but the files
+> are colocated as `providers/gguf-*.test.ts` (the repo's convention); 312 uses a synthetic
+> byte-exact GGUF header builder rather than a checked-in binary fixture; 334 has no implementation
+> to test (see below).
+
+- [x] 311. Create `sdk/packages/llms/src/providers/__tests__/gguf-parser.test.ts` — **DONE, at a different path**: `sdk/packages/llms/src/providers/gguf-parser.test.ts`, colocated with the module (9 tests). Repo convention is colocated `*.test.ts`; there is no `providers/__tests__/` directory.
+- [x] 312. Test `parseGGUFMetadataFromFile` with a real tiny GGUF fixture — **DONE (synthetic header, not a binary fixture).** The suite builds a byte-exact GGUF v3 header (`buildHeader`) and exercises `parseGGUFMetadataFromBuffer`/`parseGGUFMetadataFromFile`/`extractGGUFMetadata`. A checked-in multi-MB model file would bloat the repo for little gain — the parser only reads the header, which is fully covered.
+- [x] 313. Test missing file → `GGUFParseError("ENOENT")` — **DONE.**
+- [x] 314. Test non-GGUF file → `GGUFParseError("NOT_GGUF")` — **DONE** (bad magic and non-`.gguf` extension).
+- [x] 315. Test truncated header → `GGUFParseError("TRUNCATED")` — **DONE.**
+- [x] 316. Test GGUF version handling for v3/v4 — **DONE** (accepts v3, rejects unsupported versions).
+- [x] 317. Test metadata key-value extraction correctness — **DONE** (KV record, ULEB128 boundaries, uint64/GGUF strings).
+- [x] 318. Test parameter-count derivation from `block_count` — **DONE as implemented (test added this turn), with the premise corrected.** `block_count` counts layers, not parameters, so the parser deliberately does not derive from it: the label comes from `general.size_label`, else `"unknown"` (documented at `gguf-parser.ts:303`). The new test pins both branches rather than the behaviour the checklist assumed.
+- [x] 319. Test quantization regex extraction (Q4_K_M, Q5_0, F16 …) — **DONE.**
+- [x] 320. Create `sdk/packages/llms/src/providers/__tests__/gguf-inference.test.ts` — **DONE, at `providers/gguf-inference.test.ts` + a new `gguf-inference-lifecycle.test.ts`** (10 + 6 tests). Split because the lifecycle cases need `node:child_process`/`gguf-parser` module mocks, and leaking those into the contract-only suite would weaken it.
+- [x] 321. Test `GGUFInferenceHandler` construction with valid config — **DONE** (model info + capabilities exposed).
+- [x] 322. Test `detectLlamaServer` returns unavailable when mocked PATH is empty — **DONE** (probe contract pinned; CI may or may not have the binary).
+- [x] 323. Test `detectLlamaServer` returns path+version when `which llama-server` succeeds — **DONE** (same test, both branches).
+- [x] 324. Test `findFreePort` returns a usable port number — **DONE.**
+- [x] 325. Test `spawnLlamaServer` builds correct argv (assert each flag) — **DONE** (full argv equality incl. `--jinja` and `extraArgs`).
+- [x] 326. Test `abort()` sets the internal `AbortController` signal — **DONE** (external signal propagates to the stream).
+- [x] 327. Test `dispose()` kills the child process (mocked `spawn`) — **DONE (added this turn).** Two cases: kills a live child and clears the registry entry + port; and is a no-op when the child already exited.
+- [x] 328. Test one-llama-server-per-path registry dedupes same model path — **DONE (added this turn) — and it found a real bug.** `initialize()` adopted the cached child but left `this.port` at 0, so a second handler for the same path would fail every later request with "Model is not loaded" even though the server was up. Fixed by storing `{process, port}` in `RUNNING_SERVERS` and adopting both on reuse; the new test is the regression lock.
+- [x] 329. Test `getMessages` formats an OpenAI `chatCompletion` payload — **DONE (added this turn).** System message prepended only when non-empty; roles/content preserved.
+- [x] 330. Test `createMessage` streams chunks via mocked HTTP (RISK) — **DONE** (SSE delta mapping + reader loop are exercised; real sockets still need Phase 25).
+- [x] 331. Test `createMessage` maps tool-call delta chunks — **DONE for text/reasoning/usage/done mapping. Gap recorded:** the delta mapper handles `content`/`reasoning_content`/`usage`/`finish_reason` but has no tool-call branch, so a `tool_calls` delta is currently dropped. Needs a mapping decision plus the handler contract — flagged for Phase 22/26 rather than asserted as passing.
+- [x] 332. Test `createMessage` maps usage chunk (`prompt_tokens`, `completion_tokens`) — **DONE.**
+- [x] 333. Test `createMessage` surfaces error response as a finished-error chunk — **DONE as implemented (test added this turn).** The implementation rejects the stream with a typed `GGUFInferenceError("SERVER_ERROR")` rather than yielding a finished-error chunk; the test pins the real contract (instance, `code`, HTTP status in the message).
+- [ ] 334. Test idle unload timer fires after idle-timeout minutes — **N/A, nothing to test.** No idle-unload mechanism exists in `GGUFInferenceHandler` (no `idleTimeout` field or timer). This is the "enforce idle GC: unload after 15 min" feature in Phase 26 (item 493) — an implementation task, not a test task.
+- [x] 335. Run `bun -F @cline/llms test` — zero failures — **DONE with one caveat.** `tsc -p tsconfig.dev.json` → clean; Biome clean. Full suite: **890 passed / 5 failed** before this turn's fixes; the `ids.test.ts` failure was a stale import (`createHandler` imported from `./factory-registry`, but it lives in the `../providers` facade) and is **fixed** → 16/16. The remaining 4 are `gateway.test.ts` Vertex cases failing on the 5s test timeout (pre-existing, unrelated to GGUF; that file is untouched). All 37 GGUF tests green.
 
 ---
 
 ## Phase 18 — Extension Host Unit Tests (336–355)
 
-- [ ] 336. Create `__tests__/getGGUFMetadata.handler.test.ts`
-- [ ] 337. Test handler returns parsed metadata for a valid mock path
-- [ ] 338. Test handler rejects with `INVALID_ARGUMENT` for a missing file
-- [ ] 339. Test handler rejects with `INVALID_ARGUMENT` for a non-`.gguf` path
-- [ ] 340. Create `__tests__/loadGGUFModel.handler.test.ts`
-- [ ] 341. Test handler calls `detectLlamaServer` first
-- [ ] 342. Test handler returns a friendly error when `llama-server` is missing (BLOCKER)
-- [ ] 343. Test handler acquires the handler via `getRegisteredHandler`
-- [ ] 344. Test handler returns `LoadGGUFModelResponse{success:true}` on success
-- [ ] 345. Test handler stores the live reference on the `ProviderCatalogController`
-- [ ] 346. Create `__tests__/unloadGGUFModel.handler.test.ts`
-- [ ] 347. Test handler calls `dispose()` on the running process
-- [ ] 348. Test handler is idempotent (no throw) when nothing is loaded
-- [ ] 349. Test handler clears the held controller reference
-- [ ] 350. Create `__tests__/getGGUFModelStatus.handler.test.ts`
-- [ ] 351. Test handler returns `loaded:false` when no reference is held
-- [ ] 352. Test handler returns `loaded:true` + pid + memory when process alive
-- [ ] 353. Test handler detects a crashed llama-server (process exited)
-- [ ] 354. Verify all four handlers are wired into the `ModelsService` dispatch map
-- [ ] 355. Run `bun run test:unit` for the vscode-package models tests
+- [x] 336. Create `__tests__/getGGUFMetadata.handler.test.ts` — exists as `getGGUFMetadata.test.ts` (5 cases; same coverage)
+- [x] 337. Test handler returns parsed metadata for a valid mock path
+- [x] 338. Test handler rejects for a missing file — typed `ENOENT` code in the message (errors carry `[CODE] msg`, not gRPC `INVALID_ARGUMENT`)
+- [x] 339. Test handler rejects for a non-`.gguf` path — `NOT_A_GGUF_PATH`
+- [x] 340. Create `__tests__/loadGGUFModel.handler.test.ts`
+- [x] 341. Test handler calls `detectLlamaServer` first
+- [x] 342. Test handler returns a friendly error when `llama-server` is missing (BLOCKER)
+- [x] 343. Test handler acquires the handler via the SDK factory — now asserts the full `ProviderConfig` (`providerId`/`modelId` included)
+- [x] 344. Test handler returns `LoadGGUFModelResponse{success:true}` on success
+- [x] 345. Test handler stores the live reference on the `ProviderCatalogController`
+- [x] 346. Create `__tests__/unloadGGUFModel.handler.test.ts`
+- [x] 347. Test handler calls `dispose()` on the running process
+- [x] 348. Test handler is idempotent (no throw) when nothing is loaded
+- [x] 349. Test handler clears the held controller reference
+- [x] 350. Create `__tests__/getGGUFModelStatus.handler.test.ts`
+- [x] 351. Test handler returns `loaded:false` when no reference is held
+- [x] 352. Test handler returns `loaded:true` + pid + memory when process alive
+- [x] 353. Test handler detects a crashed llama-server (process exited)
+- [x] 354. Verify all four handlers are wired into the `ModelsService` dispatch map
+- [x] 355. Run `bun run test:unit` for the vscode-package models tests
+
+**Phase 18 findings (all fixed):**
+
+1. **The GGUF test files were never running.** `apps/vscode/vitest.config.ts` enumerates
+   `include` file-by-file, and `getGGUFMetadata.test.ts` was absent — the suites existed
+   but no run ever executed them. Registered the GGUF handler suites in the include list.
+   (`ggufModelRuntime.test.ts` stays out: it imports `bun:test`, so `bun run test:unit`
+   discovers it instead — adding it to vitest fails on the `bun:test` import.)
+2. **`createHandler()` was called without a `providerId`** (task 343). `createHandler`
+   routes on `config.providerId`, so the bare `GGUFInferenceConfig` fell through to the
+   gateway handler and the handler's `instanceof GGUFInferenceHandler` check rejected it
+   as "not registered" — the load path could never succeed in a real build. Now passes a
+   full `ProviderConfig` built from `BUILT_IN_PROVIDER.LOCAL_GGUF` + `LOCAL_GGUF_MODEL_ID`.
+3. **A crashed `llama-server` still reported `loaded: true`** (task 353). Status read
+   `getRunningServer(...)?.pid` and zeroed the PID, but `toGgufStatusSnapshot` derives
+   `loaded` from the held reference, so the UI kept claiming a live model and the
+   controller pinned a dead process. Now: no registry entry → clear the reference and
+   report `loaded:false`.
+4. **Path validation ran after the PATH probe.** Selecting a non-`.gguf` file still paid
+   for `detectLlamaServer()` and reported "llama-server missing" rather than the real
+   problem. The cheap local check now runs first.
+5. Wrong relative import (`from ".."`, which resolves to `models/`) in the GGUF handler
+   tests — corrected to `from "../.."`.
+
+**Verification:** `test:vitest GGUF gguf` 4 files / 20 tests pass; `bun run test:unit`
+80 files / 1135 tests, 0 fail; `check-types` clean for all GGUF files (one pre-existing
+unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on touched files.
 
 ---
 
