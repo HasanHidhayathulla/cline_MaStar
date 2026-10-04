@@ -273,4 +273,44 @@ describe("useProviderConfig", () => {
 		})
 		expect(result.current.config?.baseUrl).toBe("https://new.example/v1")
 	})
+
+	// Phase 14 task 276: the local-gguf form persists its file path and
+	// inference knobs through this hook, so they must survive the
+	// read -> write -> read round trip as plain provider-config fields.
+	it("round-trips the local-gguf model path and inference knobs", async () => {
+		const stored = ProviderConfigResponse.create({
+			providerId: "local-gguf",
+			modelPath: "C:/models/tiny.gguf",
+			threads: 4,
+			gpuLayers: 0,
+			contextWindow: 4096,
+			headers: {},
+			apiKeyLength: 0,
+			hasAccessToken: false,
+			hasRefreshToken: false,
+		})
+		vi.mocked(ModelsServiceClient.readProviderConfig).mockResolvedValue(stored)
+		vi.mocked(ModelsServiceClient.writeProviderConfig).mockResolvedValue(stored)
+
+		const { result } = renderHook(() => useProviderConfig("local-gguf"))
+		await waitFor(() => expect(result.current.config?.modelPath).toBe("C:/models/tiny.gguf"))
+
+		expect(ModelsServiceClient.readProviderConfig).toHaveBeenCalledWith(StringRequest.create({ value: "local-gguf" }))
+
+		await act(async () => {
+			await result.current.write({ modelPath: "C:/models/other.gguf", threads: 8, gpuLayers: 12 })
+		})
+
+		expect(ModelsServiceClient.writeProviderConfig).toHaveBeenCalledWith(
+			expect.objectContaining({
+				providerId: "local-gguf",
+				// An empty modelPath clears the selection; gpuLayers 0 is a
+				// meaningful "CPU only" value and must not be treated as unset.
+				patch: expect.objectContaining({ modelPath: "C:/models/other.gguf", threads: 8, gpuLayers: 12 }),
+			}),
+		)
+		expect(result.current.config?.threads).toBe(4)
+		expect(result.current.config?.gpuLayers).toBe(0)
+		expect(result.current.config?.contextWindow).toBe(4096)
+	})
 })

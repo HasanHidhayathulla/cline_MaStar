@@ -5,6 +5,7 @@ import {
 	getGenericProviderSettings,
 	hasCustomProviderSettings,
 	isGenericProviderListing,
+	isKnownGenericProvider,
 } from "./providerSettingsRegistry"
 
 function listing(overrides: Partial<ProviderListing>): ProviderListing {
@@ -207,5 +208,31 @@ describe("providerSettingsRegistry", () => {
 			providerName: "Z.AI Coding Plan",
 		})
 		expect(getFallbackGenericProviderSettings("openai")).toBeUndefined()
+	})
+
+	// `local-gguf` renders its own form (LocalGGUFProvider): the model path,
+	// llama-server load/unload and the [NOT_INSTALLED] install banner have no
+	// generic-form equivalent. It must therefore stay in
+	// CUSTOM_PROVIDER_SETTINGS_IDS and must NOT gain a generic entry:
+	// ApiOptions renders GenericProviderSettings whenever
+	// `getGenericProviderSettings() ?? getFallbackGenericProviderSettings()`
+	// resolves, so a fallback name would stack a second, wrong form above the
+	// real one. The custom component ignores baseUrlField, so a "Local Model
+	// File" base-URL override would be inert even if it did resolve.
+	it("keeps local-gguf on its custom form and out of the generic forms", () => {
+		const localGgufListing = listing({
+			allowsCustomModelIds: true,
+			id: "local-gguf",
+			name: "Local GGUF",
+			protocol: "openai-chat",
+		})
+
+		expect(hasCustomProviderSettings("local-gguf")).toBe(true)
+		// Not a known generic provider, so ApiOptions keeps `isCustomProvider`
+		// false without routing it to the OpenAI-compatible form.
+		expect(isKnownGenericProvider("local-gguf")).toBe(false)
+		expect(isGenericProviderListing(localGgufListing)).toBe(false)
+		expect(getGenericProviderSettings("local-gguf", localGgufListing)).toBeUndefined()
+		expect(getFallbackGenericProviderSettings("local-gguf")).toBeUndefined()
 	})
 })

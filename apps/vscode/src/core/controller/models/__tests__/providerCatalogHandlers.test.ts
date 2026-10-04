@@ -367,6 +367,43 @@ describe("provider model catalog handlers", () => {
 		expect(stateManager.flushPendingState).toHaveBeenCalledTimes(1)
 	})
 
+	// Phase 9 task 196: `local-gguf` has one stable model id ("local-model"),
+	// so what a mode toggle must preserve is the *selection* per mode, not the
+	// modelPath/threads/gpuLayers tuning knobs (those are provider-scoped and
+	// shared). Committing in one mode must not clobber the other mode's pick.
+	it("commitModelSelection persists the local-gguf model choice per mode", async () => {
+		const { commitModelSelection } = await import("../commitModelSelection")
+		const providerId = parseProviderId("local-gguf")
+		const store = makeStore({ providerId })
+		const stateManager: TestStateManager = {
+			setGlobalStateBatch: vi.fn(),
+			flushPendingState: vi.fn(async () => undefined),
+		}
+		const controller = makeController(store, makeCatalog(), stateManager)
+
+		await commitModelSelection(controller, { providerId: "local-gguf", mode: "plan", modelId: "local-model" })
+		await commitModelSelection(controller, { providerId: "local-gguf", mode: "act", modelId: "local-model" })
+
+		expect(store.commitSelection).toHaveBeenNthCalledWith(1, providerId, "plan", {
+			providerId,
+			modelId: "local-model",
+		})
+		expect(store.commitSelection).toHaveBeenNthCalledWith(2, providerId, "act", {
+			providerId,
+			modelId: "local-model",
+		})
+		// `local-gguf` has no entry in ProviderKeyMap, so both modes mirror into
+		// the generic model-id keys rather than clobbering a shared key.
+		expect(stateManager.setGlobalStateBatch).toHaveBeenNthCalledWith(1, {
+			planModeApiProvider: "local-gguf",
+			planModeApiModelId: "local-model",
+		})
+		expect(stateManager.setGlobalStateBatch).toHaveBeenNthCalledWith(2, {
+			actModeApiProvider: "local-gguf",
+			actModeApiModelId: "local-model",
+		})
+	})
+
 	it("commitModelSelection carries cached dynamic model metadata into the host store", async () => {
 		const { commitModelSelection } = await import("../commitModelSelection")
 		const providerId = parseProviderId("litellm")
