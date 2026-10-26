@@ -590,11 +590,11 @@ unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on t
 
 ## Phase 19 — Integration & E2E (356–370)
 
-- [ ] 356. Extend `providerCatalogSmoke.test.ts` for the `local-gguf` provider (SPIKE)
-- [ ] 357. Integration test: select `local-gguf` → `readProviderConfig` → `commitModelSelection` round-trip
-- [ ] 358. Integration test: `resolveProviderModels("local-gguf")` returns a model entry
-- [ ] 359. Integration test: `readProviderConfig`/`writeProviderConfig` with GGUF path patch
-- [ ] 360. Integration test: `toRedactedProviderConfigResponse` exposes `local-gguf` fields (path masked in UI)
+- [x] 356. Extend `providerCatalogSmoke.test.ts` for the `local-gguf` provider (SPIKE) — **COMPLETED**
+- [x] 357. Integration test: select `local-gguf` → `readProviderConfig` → `commitModelSelection` round-trip — **COMPLETED**
+- [x] 358. Integration test: `resolveProviderModels("local-gguf")` returns a model entry — **COMPLETED**
+- [x] 359. Integration test: `readProviderConfig`/`writeProviderConfig` with GGUF path patch — **COMPLETED**
+- [x] 360. Integration test: `toRedactedProviderConfigResponse` exposes `local-gguf` fields (path masked in UI) — **COMPLETED**
 - [ ] 361. Unit test: `hasCustomProviderSettings("local-gguf") === true`
 - [ ] 362. Unit test: `providerSettingsRegistry` returns a config for `local-gguf`
 - [ ] 363. Webview render test: provider dropdown contains "Local GGUF"

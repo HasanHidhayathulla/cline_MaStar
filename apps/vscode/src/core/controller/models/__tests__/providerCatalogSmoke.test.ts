@@ -7,13 +7,14 @@ import { createProviderCatalog } from "@/sdk/model-catalog/catalog"
 import type { ProviderCatalog, ProviderConfigStore } from "@/sdk/model-catalog/contracts"
 import { createProviderConfigStore } from "@/sdk/model-catalog/store"
 import { Empty, StringRequest } from "@/shared/proto/cline/common"
-import { CommitModelSelectionRequest } from "@/shared/proto/cline/models"
+import { CommitModelSelectionRequest, ProviderConfigPatch, WriteProviderConfigRequest } from "@/shared/proto/cline/models"
 import { createStorageContext } from "@/shared/storage/storage-context"
 import { commitModelSelection } from "../commitModelSelection"
 import { listProviders } from "../listProviders"
 import type { ProviderCatalogController } from "../providerCatalogShared"
 import { readProviderConfig } from "../readProviderConfig"
 import { resolveProviderModels } from "../resolveProviderModels"
+import { writeProviderConfig } from "../writeProviderConfig"
 
 vi.mock("@/services/logging/distinctId", () => ({
 	initializeDistinctId: vi.fn(async () => undefined),
@@ -86,5 +87,95 @@ describe("provider model catalog backend smoke", () => {
 		expect(config.actSelection?.modelId).toBe(modelId)
 		expect(config.actSelection?.modelInfo).toEqual(modelInfo)
 		expect(JSON.stringify(config)).not.toContain("SECRET")
+	})
+
+	it("integrates local-gguf in catalog smoke: listing, config write/read, model resolution, and selection commit (tasks 356-360)", async () => {
+		// Task 372/356: Confirm local-gguf appears in the provider listing
+		const providers = await listProviders(controller, Empty.create())
+		expect(providers.providers.some((provider) => provider.id === "local-gguf")).toBe(true)
+
+		// Create a temporary mock .gguf model file for integration testing
+		const modelPath = path.join(clineDir, "test-model.gguf")
+		// Minimal valid GGUF header (magic 0x46554747 + v3 + 0 tensors + 0 KV metadata)
+		const ggufHeader = Buffer.from([
+			0x47,
+			0x47,
+			0x55,
+			0x46,
+			0x03,
+			0x00,
+			0x00,
+			0x00, // magic 'GGUF', version 3
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00, // 0 tensors
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00,
+			0x00, // 0 metadata KV
+		])
+		await fs.writeFile(modelPath, ggufHeader)
+
+		// Task 359 & 360: writeProviderConfig patch with GGUF fields & verify toRedactedProviderConfigResponse
+		const writeResponse = await writeProviderConfig(
+			controller,
+			WriteProviderConfigRequest.create({
+				providerId: "local-gguf",
+				patch: ProviderConfigPatch.create({
+					modelPath,
+					threads: 8,
+					gpuLayers: 16,
+					contextWindow: 4096,
+				}),
+			}),
+		)
+
+		expect(writeResponse.providerId).toBe("local-gguf")
+		expect(writeResponse.modelPath).toBe(modelPath)
+		expect(writeResponse.threads).toBe(8)
+		expect(writeResponse.gpuLayers).toBe(16)
+		expect(writeResponse.contextWindow).toBe(4096)
+
+		// Task 359 & 360: readProviderConfig exposes redacted response with local-gguf fields
+		const readResponse = await readProviderConfig(controller, StringRequest.create({ value: "local-gguf" }))
+		expect(readResponse.providerId).toBe("local-gguf")
+		expect(readResponse.modelPath).toBe(modelPath)
+		expect(readResponse.threads).toBe(8)
+		expect(readResponse.gpuLayers).toBe(16)
+		expect(readResponse.contextWindow).toBe(4096)
+
+		// Task 358: resolveProviderModels("local-gguf") returns the local-model entry
+		const models = await resolveProviderModels(controller, {
+			providerId: "local-gguf",
+			forceRefresh: true,
+			requestId: "local-gguf-smoke",
+		})
+		expect(models.ok).toBe(true)
+		expect(models.requestId).toBe("local-gguf-smoke")
+		expect(models.models["local-model"]).toBeDefined()
+		expect(models.models["local-model"].name).toBe("test-model")
+
+		// Task 357: commitModelSelection round-trip for local-gguf
+		await commitModelSelection(
+			controller,
+			CommitModelSelectionRequest.create({
+				providerId: "local-gguf",
+				mode: "plan",
+				modelId: "local-model",
+			}),
+		)
+
+		const configAfterCommit = await readProviderConfig(controller, StringRequest.create({ value: "local-gguf" }))
+		expect(configAfterCommit.planSelection?.providerId).toBe("local-gguf")
+		expect(configAfterCommit.planSelection?.modelId).toBe("local-model")
 	})
 })
