@@ -595,12 +595,12 @@ unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on t
 - [x] 358. Integration test: `resolveProviderModels("local-gguf")` returns a model entry — **COMPLETED**
 - [x] 359. Integration test: `readProviderConfig`/`writeProviderConfig` with GGUF path patch — **COMPLETED**
 - [x] 360. Integration test: `toRedactedProviderConfigResponse` exposes `local-gguf` fields (path masked in UI) — **COMPLETED**
-- [ ] 361. Unit test: `hasCustomProviderSettings("local-gguf") === true`
-- [ ] 362. Unit test: `providerSettingsRegistry` returns a config for `local-gguf`
-- [ ] 363. Webview render test: provider dropdown contains "Local GGUF"
-- [ ] 364. Webview render test: selecting it mounts `LocalGGUFProvider`
-- [ ] 365. Webview render test: file-picker button calls gRPC `pickFile` (SPIKE to confirm API)
-- [ ] 366. Webview render test: metadata card shows arch + context length after fetch
+- [x] 361. Unit test: `hasCustomProviderSettings("local-gguf") === true` — **COMPLETED** (asserted in `providerSettingsRegistry.test.ts`)
+- [x] 362. Unit test: `providerSettingsRegistry` returns a config for `local-gguf` — **COMPLETED** (asserted custom/generic form behavior in `providerSettingsRegistry.test.ts`)
+- [x] 363. Webview render test: provider dropdown contains "Local GGUF" — **COMPLETED** (tested in `ApiOptions.local-gguf.test.tsx`)
+- [x] 364. Webview render test: selecting it mounts `LocalGGUFProvider` — **COMPLETED** (tested in `ApiOptions.local-gguf.test.tsx`)
+- [x] 365. Webview render test: file-picker button calls gRPC `pickFile` (SPIKE to confirm API) — **COMPLETED** (tested in `LocalGGUFProvider.test.tsx` via `FileServiceClient.selectFiles`)
+- [x] 366. Webview render test: metadata card shows arch + context length after fetch — **COMPLETED** (tested in `LocalGGUFProvider.test.tsx`)
 - [ ] 367. E2E: launch real `llama-server` with a tiny fixture → `loadGGUFModel` RPC → expect success
 - [ ] 368. E2E: send one chat turn through the loaded `local-gguf` handler and verify a streamed response
 - [ ] 369. E2E: `getGGUFModelStatus` reflects the running server PID + memory
