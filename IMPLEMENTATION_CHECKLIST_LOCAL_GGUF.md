@@ -610,11 +610,11 @@ unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on t
 
 ## Phase 20 — Provider Listing & Discovery (371–386)
 
-- [ ] 371. Inspect `apps/vscode/src/sdk/model-catalog/catalog.ts` for provider enumeration (SPIKE)
-- [ ] 372. Confirm `local-gguf` appears in the SDK-side provider listing
-- [ ] 373. Confirm `local-gguf` listing flows to the webview via gRPC `ListProviders`
-- [ ] 374. Verify the provider switcher dropdown includes "Local GGUF"
-- [ ] 375. Verify selecting it sets `planModeApiProvider`/`actModeApiProvider` to `"local-gguf"`
+- [x] 371. Inspect `apps/vscode/src/sdk/model-catalog/catalog.ts` for provider enumeration (SPIKE)
+- [x] 372. Confirm `local-gguf` appears in the SDK-side provider listing
+- [x] 373. Confirm `local-gguf` listing flows to the webview via gRPC `ListProviders`
+- [x] 374. Verify the provider switcher dropdown includes "Local GGUF"
+- [x] 375. Verify selecting it sets `planModeApiProvider`/`actModeApiProvider` to `"local-gguf"`
 - [ ] 376. Verify `providerSwitchNormalization.ts` doesn't strip `local-gguf`
 - [ ] 377. Check `apps/vscode/src/core/controller/models/providerCatalogShared.ts` `toProviderListingProto` handles `local-gguf`
 - [ ] 378. Verify `family: "openai-compatible"` flows in the proto `ProviderListing`
