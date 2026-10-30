@@ -7,7 +7,7 @@ import { createProviderCatalog } from "@/sdk/model-catalog/catalog"
 import type { ProviderCatalog, ProviderConfigStore } from "@/sdk/model-catalog/contracts"
 import { createProviderConfigStore } from "@/sdk/model-catalog/store"
 import { Empty, StringRequest } from "@/shared/proto/cline/common"
-import { CommitModelSelectionRequest, ProviderConfigPatch, WriteProviderConfigRequest } from "@/shared/proto/cline/models"
+import { CommitModelSelectionRequest, WriteProviderConfigPatch, WriteProviderConfigRequest } from "@/shared/proto/cline/models"
 import { createStorageContext } from "@/shared/storage/storage-context"
 import { commitModelSelection } from "../commitModelSelection"
 import { listProviders } from "../listProviders"
@@ -130,7 +130,7 @@ describe("provider model catalog backend smoke", () => {
 			controller,
 			WriteProviderConfigRequest.create({
 				providerId: "local-gguf",
-				patch: ProviderConfigPatch.create({
+				patch: WriteProviderConfigPatch.create({
 					modelPath,
 					threads: 8,
 					gpuLayers: 16,

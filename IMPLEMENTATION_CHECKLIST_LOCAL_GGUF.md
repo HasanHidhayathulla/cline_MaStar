@@ -615,11 +615,11 @@ unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on t
 - [x] 373. Confirm `local-gguf` listing flows to the webview via gRPC `ListProviders` — **COMPLETED** (RPC handler `listProviders` maps SDK listings to proto `ProviderListingResponse`)
 - [x] 374. Verify the provider switcher dropdown includes "Local GGUF" — **COMPLETED** (verified in `ApiOptions.local-gguf.test.tsx`)
 - [x] 375. Verify selecting it sets `planModeApiProvider`/`actModeApiProvider` to `"local-gguf"` — **COMPLETED** (verified in `ApiOptions.local-gguf.test.tsx`)
-- [ ] 376. Verify `providerSwitchNormalization.ts` doesn't strip `local-gguf`
-- [ ] 377. Check `apps/vscode/src/core/controller/models/providerCatalogShared.ts` `toProviderListingProto` handles `local-gguf`
-- [ ] 378. Verify `family: "openai-compatible"` flows in the proto `ProviderListing`
-- [ ] 379. Verify `protocol` field for `local-gguf` resolves to `openai-chat`
-- [ ] 380. Add `local-gguf` to catalog smoke test assertions (listings include it)
+- [x] 376. Verify `providerSwitchNormalization.ts` doesn't strip `local-gguf` — **COMPLETED** (added unit test in `providerSwitchNormalization.test.ts` verifying switching to local-gguf sets `local-model`)
+- [x] 377. Check `apps/vscode/src/core/controller/models/providerCatalogShared.ts` `toProviderListingProto` handles `local-gguf` — **COMPLETED** (maps listing fields cleanly to `ProviderListingProto`)
+- [x] 378. Verify `family: "openai-compatible"` flows in the proto `ProviderListing` — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts`)
+- [x] 379. Verify `protocol` field for `local-gguf` resolves to `openai-chat` — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts`)
+- [x] 380. Add `local-gguf` to catalog smoke test assertions (listings include it) — **COMPLETED** (added assertions for local-gguf listing, family, and protocol in `providerCatalogSmoke.test.ts`)
 - [ ] 381. Verify search/discovery filters don't hide `local-gguf`
 - [ ] 382. Verify `local-gguf` is marked `local: true` in listing metadata (for UI grouping)
 - [ ] 383. Check marketplace/marketplace catalog doesn't duplicate `local-gguf`

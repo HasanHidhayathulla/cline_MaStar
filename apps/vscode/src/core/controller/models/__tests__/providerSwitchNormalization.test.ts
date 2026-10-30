@@ -107,4 +107,18 @@ describe("normalizeProviderSwitchModel", () => {
 		expect(normalized.planModeApiProvider).toBe("deepseek")
 		expect(normalized.planModeApiModelId).toBe(defaultModelId)
 	})
+
+	it("preserves or sets local-model when switching to local-gguf (task 376)", () => {
+		const providerId = parseProviderId("local-gguf")
+		const store = makeStore({ providerId })
+
+		const normalized = normalizeProviderSwitchModel(
+			store,
+			{ actModeApiProvider: "anthropic", actModeApiModelId: "claude-sonnet-4-5-20250929" },
+			{ actModeApiProvider: "local-gguf", actModeApiModelId: undefined },
+		)
+
+		expect(normalized.actModeApiProvider).toBe("local-gguf")
+		expect(normalized.actModeApiModelId).toBe("local-model")
+	})
 })
