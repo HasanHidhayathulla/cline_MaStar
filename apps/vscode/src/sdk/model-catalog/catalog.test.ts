@@ -882,7 +882,7 @@ describe("ProviderCatalog local model files", () => {
 	it("reports a corrupted model file as a shape error (task 131)", async () => {
 		const { createProviderCatalog } = await import("./catalog")
 		const providerId = parseProviderId(LOCAL_GGUF_PROVIDER)
-		const modelPath = writeGGUFFixture("corrupted.gguf", Buffer.from("not a gguf file at all"))
+		const modelPath = writeGGUFFixture("corrupted.gguf", Buffer.from("not a gguf file at all -- padded to > 24 bytes"))
 		const catalog = createProviderCatalog(makeReader({ providerId, modelPath }))
 
 		const result = await catalog.resolveModels(providerId)
