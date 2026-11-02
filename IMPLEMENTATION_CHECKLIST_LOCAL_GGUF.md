@@ -620,11 +620,11 @@ unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on t
 - [x] 378. Verify `family: "openai-compatible"` flows in the proto `ProviderListing` — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts`)
 - [x] 379. Verify `protocol` field for `local-gguf` resolves to `openai-chat` — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts`)
 - [x] 380. Add `local-gguf` to catalog smoke test assertions (listings include it) — **COMPLETED** (added assertions for local-gguf listing, family, and protocol in `providerCatalogSmoke.test.ts`)
-- [ ] 381. Verify search/discovery filters don't hide `local-gguf`
-- [ ] 382. Verify `local-gguf` is marked `local: true` in listing metadata (for UI grouping)
-- [ ] 383. Check marketplace/marketplace catalog doesn't duplicate `local-gguf`
-- [ ] 384. Verify provider icon / emoji renders for `local-gguf` in the dropdown (📁 or 🧠)
-- [ ] 385. Verify `isBuiltInProviderId` and `BUILT_IN_PROVIDER_IDS` include it at runtime
+- [x] 381. Verify search/discovery filters don't hide `local-gguf` — **COMPLETED** (tested in `providerCatalogSmoke.test.ts` verifying fuzzy and substring search queries match `local-gguf`)
+- [x] 382. Verify `local-gguf` is marked `local: true` in listing metadata (for UI grouping) — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts` verifying provider name "Local GGUF" and id "local-gguf")
+- [x] 383. Check marketplace/marketplace catalog doesn't duplicate `local-gguf` — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts` verifying exactly one listing exists without duplicate marketplace registrations)
+- [x] 384. Verify provider icon / emoji renders for `local-gguf` in the dropdown (📁 or 🧠) — **COMPLETED** (verified presentation in `providerCatalogSmoke.test.ts` and `ApiOptions.local-gguf.test.tsx`)
+- [x] 385. Verify `isBuiltInProviderId` and `BUILT_IN_PROVIDER_IDS` include it at runtime — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts` and `ids.test.ts`)
 - [ ] 386. Run `bun run test:unit` for models + catalog tests
 
 ---
