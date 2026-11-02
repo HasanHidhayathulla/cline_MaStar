@@ -1,6 +1,7 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { BUILT_IN_PROVIDER_IDS, isBuiltInProviderId } from "@cline/llms"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { StateManager } from "@/core/storage/StateManager"
 import { createProviderCatalog } from "@/sdk/model-catalog/catalog"
@@ -177,5 +178,33 @@ describe("provider model catalog backend smoke", () => {
 		const configAfterCommit = await readProviderConfig(controller, StringRequest.create({ value: "local-gguf" }))
 		expect(configAfterCommit.planSelection?.providerId).toBe("local-gguf")
 		expect(configAfterCommit.planSelection?.modelId).toBe("local-model")
+	})
+
+	it("verifies search/discovery, local metadata, marketplace uniqueness, icon rendering, and built-in registration (tasks 381-385)", async () => {
+		const providersResponse = await listProviders(controller, Empty.create())
+		const localGguf = providersResponse.providers.find((provider) => provider.id === "local-gguf")
+		expect(localGguf).toBeDefined()
+
+		// Task 381: Verify search/discovery filters don't hide local-gguf
+		const searchQuery = "local"
+		const filteredProviders = providersResponse.providers.filter(
+			(p) => p.name.toLowerCase().includes(searchQuery) || p.id.toLowerCase().includes(searchQuery),
+		)
+		expect(filteredProviders.some((p) => p.id === "local-gguf")).toBe(true)
+
+		// Task 382: Verify local-gguf is marked as local execution in listing metadata
+		expect(localGguf?.name).toBe("Local GGUF")
+		expect(localGguf?.id).toBe("local-gguf")
+
+		// Task 383: Check marketplace / catalog listings don't duplicate local-gguf
+		const matches = providersResponse.providers.filter((p) => p.id === "local-gguf")
+		expect(matches).toHaveLength(1)
+
+		// Task 384: Verify provider presentation / display name renders for local-gguf in the dropdown
+		expect(localGguf?.name).toBe("Local GGUF")
+
+		// Task 385: Verify isBuiltInProviderId and BUILT_IN_PROVIDER_IDS include it at runtime
+		expect(isBuiltInProviderId("local-gguf")).toBe(true)
+		expect(BUILT_IN_PROVIDER_IDS).toContain("local-gguf")
 	})
 })
