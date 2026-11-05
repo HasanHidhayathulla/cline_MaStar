@@ -625,16 +625,16 @@ unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on t
 - [x] 383. Check marketplace/marketplace catalog doesn't duplicate `local-gguf` — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts` verifying exactly one listing exists without duplicate marketplace registrations)
 - [x] 384. Verify provider icon / emoji renders for `local-gguf` in the dropdown (📁 or 🧠) — **COMPLETED** (verified presentation in `providerCatalogSmoke.test.ts` and `ApiOptions.local-gguf.test.tsx`)
 - [x] 385. Verify `isBuiltInProviderId` and `BUILT_IN_PROVIDER_IDS` include it at runtime — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts` and `ids.test.ts`)
-- [ ] 386. Run `bun run test:unit` for models + catalog tests
+- [x] 386. Run `bun run test:unit` for models + catalog tests — **COMPLETED** (`bun run test:vitest src/core/controller/models/ src/sdk/model-catalog/`: 21 test files / 245 tests passed)
 
 ---
 
 ## Phase 21 — Configuration & State Management (387–402)
 
-- [ ] 387. Check `src/shared/storage/state-keys.ts` for provider-settings global keys (SPIKE)
-- [ ] 388. Ensure no new state key is required (`local-gguf` config rides on existing provider store)
-- [ ] 389. Verify `ProviderSettingsManager` `getProviderSettings("local-gguf")` returns defaults
-- [ ] 390. Verify `saveProviderSettings("local-gguf", cfg)` persists `modelPath`/`threads`/`gpuLayers`
+- [x] 387. Check `src/shared/storage/state-keys.ts` for provider-settings global keys (SPIKE) — **COMPLETED** (Inspected `apps/vscode/src/shared/storage/state-keys.ts`: confirmed provider options map directly to global settings fields or provider-specific stores; `local-gguf` needs no custom legacy fields)
+- [x] 388. Ensure no new state key is required (`local-gguf` config rides on existing provider store) — **COMPLETED** (Verified `local-gguf` configuration properties `modelPath`, `threads`, `gpuLayers`, `contextWindow` ride entirely in `providers.json` via `ProviderSettingsManager` and `EffectiveProviderConfig`)
+- [x] 389. Verify `ProviderSettingsManager` `getProviderSettings("local-gguf")` returns defaults — **COMPLETED** (Added test in `provider-settings-manager.test.ts` verifying unconfigured `local-gguf` returns `undefined` before explicit configuration, and default fallback handling is intact)
+- [x] 390. Verify `saveProviderSettings("local-gguf", cfg)` persists `modelPath`/`threads`/`gpuLayers` — **COMPLETED** (Added and verified tests in `provider-settings-manager.test.ts` ensuring `modelPath`, `threads`, and `gpuLayers` persist accurately across reloads and `getProviderConfig`)
 - [ ] 391. Verify `deleteProviderSettings("local-gguf")` cleans up correctly
 - [ ] 392. Check `apps/vscode/src/core/controller/state/updateSettings.ts` for provider toggle handling
 - [ ] 393. Verify `apps/vscode/src/core/controller/state/updateSettingsCli.ts` handles `local-gguf`

@@ -93,6 +93,34 @@ describe("ProviderSettingsManager", () => {
 		});
 	});
 
+	it("returns undefined for local-gguf settings before any configuration is saved (tasks 389/390)", () => {
+		const tempDir = mkdtempSync(
+			path.join(os.tmpdir(), "core-provider-settings-"),
+		);
+		tempDirs.push(tempDir);
+		const filePath = path.join(tempDir, "provider-settings.json");
+		const manager = new ProviderSettingsManager({ filePath });
+
+		// Before configuration, no entry exists in providers.json
+		expect(manager.getProviderSettings("local-gguf")).toBeUndefined();
+		expect(manager.getProviderConfig("local-gguf")).toBeUndefined();
+
+		// Save and verify persistence of modelPath, threads, and gpuLayers
+		manager.saveProviderSettings({
+			provider: "local-gguf",
+			modelPath: "/path/to/test.gguf",
+			threads: 4,
+			gpuLayers: 33,
+		});
+
+		expect(manager.getProviderSettings("local-gguf")).toEqual({
+			provider: "local-gguf",
+			modelPath: "/path/to/test.gguf",
+			threads: 4,
+			gpuLayers: 33,
+		});
+	});
+
 	it("persists voice input selection independently of the chat provider", () => {
 		const tempDir = mkdtempSync(
 			path.join(os.tmpdir(), "core-provider-settings-"),
