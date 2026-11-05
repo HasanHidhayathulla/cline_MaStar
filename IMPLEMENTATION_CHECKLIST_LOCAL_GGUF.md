@@ -625,16 +625,16 @@ unrelated error remains in `src/sdk/model-catalog/catalog.ts`); Biome clean on t
 - [x] 383. Check marketplace/marketplace catalog doesn't duplicate `local-gguf` — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts` verifying exactly one listing exists without duplicate marketplace registrations)
 - [x] 384. Verify provider icon / emoji renders for `local-gguf` in the dropdown (📁 or 🧠) — **COMPLETED** (verified presentation in `providerCatalogSmoke.test.ts` and `ApiOptions.local-gguf.test.tsx`)
 - [x] 385. Verify `isBuiltInProviderId` and `BUILT_IN_PROVIDER_IDS` include it at runtime — **COMPLETED** (asserted in `providerCatalogSmoke.test.ts` and `ids.test.ts`)
-- [ ] 386. Run `bun run test:unit` for models + catalog tests
+- [x] 386. Run `bun run test:unit` for models + catalog tests — **COMPLETED** (`apps/vscode` vitest models + catalog suites: 21 files / 245 tests pass; `@cline/llms` GGUF suites: 4 files / 37 tests pass; `@cline/core` provider settings suites: 2 files / 32 tests pass)
 
 ---
 
 ## Phase 21 — Configuration & State Management (387–402)
 
-- [ ] 387. Check `src/shared/storage/state-keys.ts` for provider-settings global keys (SPIKE)
-- [ ] 388. Ensure no new state key is required (`local-gguf` config rides on existing provider store)
-- [ ] 389. Verify `ProviderSettingsManager` `getProviderSettings("local-gguf")` returns defaults
-- [ ] 390. Verify `saveProviderSettings("local-gguf", cfg)` persists `modelPath`/`threads`/`gpuLayers`
+- [x] 387. Check `src/shared/storage/state-keys.ts` for provider-settings global keys (SPIKE) — **COMPLETED** (audited `state-keys.ts`; confirmed global settings use `planModeApiProvider`/`actModeApiProvider` for provider selection and generic `planModeApiModelId`/`actModeApiModelId` for model IDs, while provider credentials and custom configuration use `ProviderSettingsManager`)
+- [x] 388. Ensure no new state key is required (`local-gguf` config rides on existing provider store) — **COMPLETED** (confirmed `local-gguf` config rides entirely on `providers.json` via `ProviderSettingsManager` with schema fields `modelPath`, `threads`, `gpuLayers`, `contextWindow`; no new global state keys needed in `state-keys.ts`)
+- [x] 389. Verify `ProviderSettingsManager` `getProviderSettings("local-gguf")` returns defaults — **COMPLETED** (verified via `provider-settings.test.ts` and `provider-settings-manager.test.ts` that `getProviderSettings("local-gguf")` resolves defaults and omits unset local model fields cleanly)
+- [x] 390. Verify `saveProviderSettings("local-gguf", cfg)` persists `modelPath`/`threads`/`gpuLayers` — **COMPLETED** (verified via `round-trips local model file settings` test in `provider-settings-manager.test.ts` asserting atomic file persistence and round-tripping of `modelPath`, `threads`, and `gpuLayers: 0`)
 - [ ] 391. Verify `deleteProviderSettings("local-gguf")` cleans up correctly
 - [ ] 392. Check `apps/vscode/src/core/controller/state/updateSettings.ts` for provider toggle handling
 - [ ] 393. Verify `apps/vscode/src/core/controller/state/updateSettingsCli.ts` handles `local-gguf`
